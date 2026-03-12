@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
+            darkMode: 'class',
             theme: {
                 extend: {
                     colors: {
@@ -19,6 +20,14 @@
                 }
             }
         }
+    </script>
+    <!-- Prevent flash of wrong theme -->
+    <script>
+        (function(){
+            const saved = localStorage.getItem('aw-theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (saved === 'dark' || (!saved && prefersDark)) document.documentElement.classList.add('dark');
+        })();
     </script>
     <style>
         @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(1.4)} }
@@ -50,9 +59,19 @@
             .pin-btn { opacity: 1 !important; width: 32px !important; height: 32px !important; }
             .ws-filter { padding: 6px 12px; }
         }
+        /* Dark mode transition */
+        html.dark { color-scheme: dark; }
+        body, .bg-white, .bg-slate-50, #modal, #modalOverlay { transition: background-color 0.3s ease, color 0.3s ease; }
+        /* Dark mode toggle button */
+        .theme-toggle { position: relative; width: 52px; height: 28px; border-radius: 99px; cursor: pointer; border: 2px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); transition: all 0.3s ease; }
+        .theme-toggle .toggle-knob { position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: white; transition: transform 0.3s ease; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+        html.dark .theme-toggle .toggle-knob { transform: translateX(24px); }
+        .theme-toggle:hover { border-color: rgba(255,255,255,0.4); }
+        /* Dark mode scrollbar */
+        html.dark ::-webkit-scrollbar-thumb { background: #475569; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen">
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 min-h-screen">
 
 <!-- ─── HEADER ───────────────────────────────────────────────────── -->
 <header class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white sticky top-0 z-50 shadow-xl">
@@ -62,7 +81,7 @@
                 <h1 class="text-xl sm:text-2xl font-bold tracking-tight">Aaron Wolf: 30-60-90 Day Onboarding Plan</h1>
                 <p class="text-slate-400 text-sm mt-1 max-w-xl">Operationalize Gen AI &rarr; Top-of-Funnel Pipeline &amp; Expert-Level Sales Enablement</p>
             </div>
-            <div class="flex gap-6 sm:gap-8">
+            <div class="flex items-center gap-6 sm:gap-8">
                 <div class="text-center">
                     <div class="text-2xl sm:text-3xl font-bold text-emerald-400" id="completedCount">0</div>
                     <div class="text-[10px] sm:text-xs uppercase tracking-wider text-slate-400">Done</div>
@@ -75,6 +94,9 @@
                     <div class="text-2xl sm:text-3xl font-bold text-slate-400" id="pendingCount">0</div>
                     <div class="text-[10px] sm:text-xs uppercase tracking-wider text-slate-400">To Do</div>
                 </div>
+                <button class="theme-toggle ml-2" id="themeToggle" title="Toggle dark mode" aria-label="Toggle dark mode">
+                    <span class="toggle-knob" id="themeIcon">&#9728;</span>
+                </button>
             </div>
         </div>
     </div>
@@ -82,12 +104,12 @@
 
 <!-- ─── PROGRESS BAR ─────────────────────────────────────────────── -->
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-4 relative z-50">
-    <div class="bg-white rounded-xl shadow-lg px-5 py-4 flex items-center gap-4">
-        <span class="text-xs sm:text-sm font-semibold text-slate-600 whitespace-nowrap">Overall Progress</span>
-        <div class="flex-1 h-3 bg-slate-200 rounded-full overflow-hidden">
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg px-5 py-4 flex items-center gap-4">
+        <span class="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">Overall Progress</span>
+        <div class="flex-1 h-3 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
             <div class="h-full rounded-full bg-gradient-to-r from-blue-500 to-emerald-500 progress-bar-animated" id="progressFill" style="width:0%"></div>
         </div>
-        <span class="text-sm font-bold text-blue-600 min-w-[40px] text-right" id="progressPct">0%</span>
+        <span class="text-sm font-bold text-blue-600 dark:text-blue-400 min-w-[40px] text-right" id="progressPct">0%</span>
     </div>
 </div>
 
@@ -114,7 +136,7 @@
             </div>
         </div>
     </div>
-    <div id="focusEmpty" class="bg-white border-2 border-dashed border-slate-300 rounded-2xl p-5 text-center">
+    <div id="focusEmpty" class="bg-white dark:bg-slate-800 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-2xl p-5 text-center">
         <p class="text-slate-400 text-sm font-medium">&#127919; Click the pin icon on any task below to set your <strong>Current Focus</strong> &mdash; one task at a time, zero noise.</p>
     </div>
 </div>
@@ -122,11 +144,11 @@
 <!-- ─── CONTROLS ─────────────────────────────────────────────────── -->
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-5">
     <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-        <div class="phase-tabs-scroll flex gap-1.5 bg-white rounded-xl p-1 shadow-sm" id="phaseTabs">
+        <div class="phase-tabs-scroll flex gap-1.5 bg-white dark:bg-slate-800 rounded-xl p-1 shadow-sm" id="phaseTabs">
             <button class="phase-tab px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap bg-blue-600 text-white" data-phase="all">All</button>
-            <button class="phase-tab px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap text-slate-500 hover:bg-slate-100" data-phase="1">Phase 1</button>
-            <button class="phase-tab px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap text-slate-500 hover:bg-slate-100" data-phase="2">Phase 2</button>
-            <button class="phase-tab px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap text-slate-500 hover:bg-slate-100" data-phase="3">Phase 3</button>
+            <button class="phase-tab px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700" data-phase="1">Phase 1</button>
+            <button class="phase-tab px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700" data-phase="2">Phase 2</button>
+            <button class="phase-tab px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700" data-phase="3">Phase 3</button>
         </div>
         <div class="phase-tabs-scroll flex gap-1.5 sm:flex-wrap sm:ml-auto" id="wsFilters">
             <button class="ws-filter active px-3 py-1.5 rounded-full text-xs font-semibold transition-all border-2 border-amber-400 bg-amber-50 text-amber-700" data-ws="immersion">Immersion</button>
@@ -140,14 +162,14 @@
 
 <!-- ─── KEY OWNERS (collapsible) ─────────────────────────────────── -->
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
-    <details class="bg-white rounded-xl shadow-sm">
-        <summary class="px-5 py-3 cursor-pointer text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors">Key Owners &amp; Partners</summary>
+    <details class="bg-white dark:bg-slate-800 rounded-xl shadow-sm">
+        <summary class="px-5 py-3 cursor-pointer text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">Key Owners &amp; Partners</summary>
         <div class="px-5 pb-3 flex flex-wrap gap-2">
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 text-xs font-medium"><span class="w-2 h-2 rounded-full bg-amber-500"></span>Lilian Mitchell <span class="text-slate-400">(Enablement)</span></span>
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 text-xs font-medium"><span class="w-2 h-2 rounded-full bg-blue-500"></span>Vincent Lang'at <span class="text-slate-400">(Sales Insights)</span></span>
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 text-xs font-medium"><span class="w-2 h-2 rounded-full bg-slate-500"></span>Mary Ring &amp; Max Coutu <span class="text-slate-400">(RevOps)</span></span>
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 text-xs font-medium"><span class="w-2 h-2 rounded-full bg-slate-500"></span>Martha Conlon, Yan Cui, Patrick O'Donnell <span class="text-slate-400">(BizApps)</span></span>
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 text-xs font-medium"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>Mike Trudell &amp; Garin Sweet <span class="text-slate-400">(BD)</span></span>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 dark:bg-slate-700 text-xs font-medium"><span class="w-2 h-2 rounded-full bg-amber-500"></span>Lilian Mitchell <span class="text-slate-400">(Enablement)</span></span>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 dark:bg-slate-700 text-xs font-medium"><span class="w-2 h-2 rounded-full bg-blue-500"></span>Vincent Lang'at <span class="text-slate-400">(Sales Insights)</span></span>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 dark:bg-slate-700 text-xs font-medium"><span class="w-2 h-2 rounded-full bg-slate-500"></span>Mary Ring &amp; Max Coutu <span class="text-slate-400">(RevOps)</span></span>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 dark:bg-slate-700 text-xs font-medium"><span class="w-2 h-2 rounded-full bg-slate-500"></span>Martha Conlon, Yan Cui, Patrick O'Donnell <span class="text-slate-400">(BizApps)</span></span>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 dark:bg-slate-700 text-xs font-medium"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>Mike Trudell &amp; Garin Sweet <span class="text-slate-400">(BD)</span></span>
         </div>
     </details>
 </div>
@@ -156,17 +178,17 @@
 <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 pb-16" id="timeline"></main>
 
 <!-- ─── MODAL ────────────────────────────────────────────────────── -->
-<div class="fixed inset-0 bg-slate-900/50 z-[200] items-center justify-center p-4 hidden" id="modalOverlay">
-    <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto shadow-2xl" id="modal">
+<div class="fixed inset-0 bg-slate-900/50 dark:bg-black/60 z-[200] items-center justify-center p-4 hidden" id="modalOverlay">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto shadow-2xl" id="modal">
         <div class="p-6 sm:p-8">
             <div class="flex justify-between items-start mb-4">
                 <h2 class="text-lg sm:text-xl font-bold pr-8" id="modalTitle"></h2>
-                <button class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 text-lg flex-shrink-0 transition-colors" id="modalClose">&times;</button>
+                <button class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center justify-center text-slate-500 dark:text-slate-300 text-lg flex-shrink-0 transition-colors" id="modalClose">&times;</button>
             </div>
             <div class="flex flex-wrap gap-2 mb-5" id="modalMeta"></div>
-            <div class="text-sm text-slate-600 leading-relaxed" id="modalBody"></div>
-            <div id="modalPeople" class="mt-5 pt-5 border-t border-slate-100"></div>
-            <div class="mt-5 pt-5 border-t border-slate-100">
+            <div class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed" id="modalBody"></div>
+            <div id="modalPeople" class="mt-5 pt-5 border-t border-slate-100 dark:border-slate-700"></div>
+            <div class="mt-5 pt-5 border-t border-slate-100 dark:border-slate-700">
                 <div class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Update Status</div>
                 <div class="flex gap-2 flex-wrap" id="modalStatus"></div>
             </div>
@@ -174,9 +196,9 @@
                 <button id="modalFocusBtn" class="px-4 py-2 rounded-full border-2 border-indigo-300 bg-indigo-50 text-indigo-700 text-sm font-semibold hover:bg-indigo-100 transition-all">&#127919; Set as Current Focus</button>
             </div>
             <!-- Notes section -->
-            <div class="mt-5 pt-5 border-t border-slate-100">
+            <div class="mt-5 pt-5 border-t border-slate-100 dark:border-slate-700">
                 <div class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Personal Notes</div>
-                <textarea id="modalNotes" class="w-full border border-slate-200 rounded-xl p-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-y min-h-[60px]" placeholder="Jot down quick thoughts, blockers, or next steps..."></textarea>
+                <textarea id="modalNotes" class="w-full border border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-xl p-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-y min-h-[60px]" placeholder="Jot down quick thoughts, blockers, or next steps..."></textarea>
             </div>
         </div>
     </div>
@@ -412,13 +434,13 @@ function render() {
         const phasePct = phaseTotal ? Math.round((phaseDone / phaseTotal) * 100) : 0;
 
         section.innerHTML = `
-            <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-4 pb-3 border-b-2 border-slate-200">
+            <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-4 pb-3 border-b-2 border-slate-200 dark:border-slate-700">
                 <div class="flex items-center gap-3">
                     <span class="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider text-white ${info.badgeCls}">${info.label}</span>
                     <span class="text-base sm:text-lg font-bold">${info.name}</span>
                 </div>
                 <div class="flex items-center gap-2 sm:ml-auto">
-                    <div class="w-24 h-2 bg-slate-200 rounded-full overflow-hidden"><div class="h-full rounded-full bg-gradient-to-r from-blue-500 to-emerald-500 progress-bar-animated" style="width:${phasePct}%"></div></div>
+                    <div class="w-24 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden"><div class="h-full rounded-full bg-gradient-to-r from-blue-500 to-emerald-500 progress-bar-animated" style="width:${phasePct}%"></div></div>
                     <span class="text-xs font-semibold text-slate-500">${phaseDone}/${phaseTotal}</span>
                     <span class="text-xs text-slate-400 hidden sm:inline">${info.days}</span>
                 </div>
@@ -450,17 +472,17 @@ function render() {
                 const isDone = t.status === "done";
                 const isFocused = t.id === focusedTaskId;
                 const card = document.createElement("div");
-                card.className = `task-card-hover flex-1 min-w-0 sm:min-w-[240px] max-w-md bg-white rounded-xl shadow-sm border-l-4 ${s.border} p-4 cursor-pointer relative group ${isDone ? 'done-card' : ''} ${isFocused ? 'ring-2 ring-blue-400 ring-offset-2' : ''}`;
+                card.className = `task-card-hover flex-1 min-w-0 sm:min-w-[240px] max-w-md bg-white dark:bg-slate-800 rounded-xl shadow-sm border-l-4 ${s.border} p-4 cursor-pointer relative group ${isDone ? 'done-card' : ''} ${isFocused ? 'ring-2 ring-blue-400 ring-offset-2 dark:ring-offset-slate-900' : ''}`;
                 card.dataset.id = t.id;
 
                 const statusHTML = isDone
-                    ? `<span class="absolute top-3 right-3 w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs font-bold">&#10003;</span>`
+                    ? `<span class="absolute top-3 right-3 w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xs font-bold">&#10003;</span>`
                     : t.status === "in-progress"
-                    ? `<span class="absolute top-3 right-3 w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center"><span class="w-2 h-2 rounded-full bg-blue-500 pulse-dot"></span></span>`
-                    : `<span class="absolute top-3 right-3 w-6 h-6 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center text-xs">&#9675;</span>`;
+                    ? `<span class="absolute top-3 right-3 w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 flex items-center justify-center"><span class="w-2 h-2 rounded-full bg-blue-500 pulse-dot"></span></span>`
+                    : `<span class="absolute top-3 right-3 w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-400 flex items-center justify-center text-xs">&#9675;</span>`;
 
                 // Pin button (visible on hover)
-                const pinHTML = `<button class="pin-btn absolute top-3 right-12 w-6 h-6 rounded-full ${isFocused ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400 opacity-0 group-hover:opacity-100'} flex items-center justify-center text-xs transition-all" title="Set as focus">&#128204;</button>`;
+                const pinHTML = `<button class="pin-btn absolute top-3 right-12 w-6 h-6 rounded-full ${isFocused ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-400 opacity-0 group-hover:opacity-100'} flex items-center justify-center text-xs transition-all" title="Set as focus">&#128204;</button>`;
 
                 const checkId = `check-${t.id}`;
                 card.innerHTML = `
@@ -470,8 +492,8 @@ function render() {
                         <input type="checkbox" id="${checkId}" class="w-4 h-4 rounded cursor-pointer flex-shrink-0" ${isDone ? 'checked' : ''}>
                         <span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded ${s.tagBg} ${s.tagText}">${t.title}</span>
                     </div>
-                    <div class="text-xs text-slate-600 leading-relaxed pr-8 card-text">${t.short}</div>
-                    ${t.people.length ? `<div class="flex flex-wrap gap-1 mt-2">${t.people.map(p=>`<span class="inline-flex items-center gap-1 text-[10px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full ${s.dotBg}"></span>${p}</span>`).join('')}</div>` : ''}
+                    <div class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed pr-8 card-text">${t.short}</div>
+                    ${t.people.length ? `<div class="flex flex-wrap gap-1 mt-2">${t.people.map(p=>`<span class="inline-flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700 px-2 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full ${s.dotBg}"></span>${p}</span>`).join('')}</div>` : ''}
                     ${t.notes ? `<div class="mt-2 text-[10px] text-indigo-500 truncate max-w-[200px]">&#128221; ${t.notes}</div>` : ''}`;
 
                 // Checkbox toggle
@@ -536,7 +558,7 @@ function openModal(task) {
     const peopleEl = document.getElementById("modalPeople");
     if (task.people.length) {
         peopleEl.innerHTML = `<div class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Key People</div>
-            <div class="flex flex-wrap gap-1.5">${task.people.map(p => `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 text-xs font-medium"><span class="w-2 h-2 rounded-full ${s.dotBg}"></span>${p}</span>`).join('')}</div>`;
+            <div class="flex flex-wrap gap-1.5">${task.people.map(p => `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 dark:bg-slate-700 text-xs font-medium"><span class="w-2 h-2 rounded-full ${s.dotBg}"></span>${p}</span>`).join('')}</div>`;
     } else {
         peopleEl.innerHTML = "";
     }
@@ -545,7 +567,7 @@ function openModal(task) {
     const statusEl = document.getElementById("modalStatus");
     const labels = { pending:"Pending", "in-progress":"In Progress", done:"Completed" };
     statusEl.innerHTML = ["pending","in-progress","done"].map(st =>
-        `<button class="px-4 py-2 rounded-full border-2 text-sm font-semibold transition-all ${task.status === st ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-500 hover:border-blue-300'}" data-s="${st}">${labels[st]}</button>`
+        `<button class="px-4 py-2 rounded-full border-2 text-sm font-semibold transition-all ${task.status === st ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 hover:border-blue-300'}" data-s="${st}">${labels[st]}</button>`
     ).join('');
     statusEl.querySelectorAll("button").forEach(btn => {
         btn.addEventListener("click", () => {
@@ -590,9 +612,9 @@ function closeModal() {
 // ─── PHASE TABS ────────────────────────────────────────────────────
 document.querySelectorAll(".phase-tab").forEach(tab => {
     tab.addEventListener("click", () => {
-        document.querySelectorAll(".phase-tab").forEach(t => { t.classList.remove("bg-blue-600","text-white"); t.classList.add("text-slate-500"); });
+        document.querySelectorAll(".phase-tab").forEach(t => { t.classList.remove("bg-blue-600","text-white"); t.classList.add("text-slate-500","dark:text-slate-400"); });
         tab.classList.add("bg-blue-600","text-white");
-        tab.classList.remove("text-slate-500");
+        tab.classList.remove("text-slate-500","dark:text-slate-400");
         activePhase = tab.dataset.phase;
         render();
     });
@@ -608,6 +630,18 @@ document.querySelectorAll(".ws-filter").forEach(btn => {
     });
 });
 
+// ─── DARK MODE TOGGLE ──────────────────────────────────────────────
+function isDark() { return document.documentElement.classList.contains('dark'); }
+function updateThemeIcon() {
+    document.getElementById('themeIcon').innerHTML = isDark() ? '&#9790;' : '&#9728;';
+}
+document.getElementById('themeToggle').addEventListener('click', () => {
+    document.documentElement.classList.toggle('dark');
+    localStorage.setItem('aw-theme', isDark() ? 'dark' : 'light');
+    updateThemeIcon();
+});
+updateThemeIcon();
+
 // ─── KEYBOARD SHORTCUTS ────────────────────────────────────────────
 document.addEventListener("keydown", e => {
     if (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT") return;
@@ -615,6 +649,7 @@ document.addEventListener("keydown", e => {
     if (e.key === "2") { document.querySelector('[data-phase="2"]').click(); }
     if (e.key === "3") { document.querySelector('[data-phase="3"]').click(); }
     if (e.key === "0") { document.querySelector('[data-phase="all"]').click(); }
+    if (e.key === "d") { document.getElementById('themeToggle').click(); }
 });
 
 // ─── INIT ──────────────────────────────────────────────────────────
