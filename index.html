@@ -36,6 +36,20 @@
         ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 99px; }
         .done-card { opacity: 0.55; }
         .done-card .card-text { text-decoration: line-through; }
+        /* Mobile: horizontal-scroll phase tabs */
+        .phase-tabs-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        .phase-tabs-scroll::-webkit-scrollbar { display: none; }
+        /* Safe-area padding for notched iPhones */
+        @supports (padding: env(safe-area-inset-bottom)) {
+            body { padding-bottom: env(safe-area-inset-bottom); }
+            header { padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1rem, env(safe-area-inset-right)); }
+        }
+        /* Touch-friendly tap targets */
+        @media (max-width: 640px) {
+            .task-card-hover { min-height: 72px; }
+            .pin-btn { opacity: 1 !important; width: 32px !important; height: 32px !important; }
+            .ws-filter { padding: 6px 12px; }
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
@@ -108,13 +122,13 @@
 <!-- ─── CONTROLS ─────────────────────────────────────────────────── -->
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-5">
     <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-        <div class="flex gap-1.5 bg-white rounded-xl p-1 shadow-sm" id="phaseTabs">
-            <button class="phase-tab px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all bg-blue-600 text-white" data-phase="all">All</button>
-            <button class="phase-tab px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all text-slate-500 hover:bg-slate-100" data-phase="1">Phase 1: Foundation</button>
-            <button class="phase-tab px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all text-slate-500 hover:bg-slate-100" data-phase="2">Phase 2: Build</button>
-            <button class="phase-tab px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all text-slate-500 hover:bg-slate-100" data-phase="3">Phase 3: Scale</button>
+        <div class="phase-tabs-scroll flex gap-1.5 bg-white rounded-xl p-1 shadow-sm" id="phaseTabs">
+            <button class="phase-tab px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap bg-blue-600 text-white" data-phase="all">All</button>
+            <button class="phase-tab px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap text-slate-500 hover:bg-slate-100" data-phase="1">Phase 1</button>
+            <button class="phase-tab px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap text-slate-500 hover:bg-slate-100" data-phase="2">Phase 2</button>
+            <button class="phase-tab px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap text-slate-500 hover:bg-slate-100" data-phase="3">Phase 3</button>
         </div>
-        <div class="flex flex-wrap gap-1.5 sm:ml-auto" id="wsFilters">
+        <div class="phase-tabs-scroll flex gap-1.5 sm:flex-wrap sm:ml-auto" id="wsFilters">
             <button class="ws-filter active px-3 py-1.5 rounded-full text-xs font-semibold transition-all border-2 border-amber-400 bg-amber-50 text-amber-700" data-ws="immersion">Immersion</button>
             <button class="ws-filter active px-3 py-1.5 rounded-full text-xs font-semibold transition-all border-2 border-blue-400 bg-blue-50 text-blue-700" data-ws="agent">AI Build</button>
             <button class="ws-filter active px-3 py-1.5 rounded-full text-xs font-semibold transition-all border-2 border-slate-400 bg-slate-100 text-slate-600" data-ws="infra">Infrastructure</button>
@@ -429,14 +443,14 @@ function render() {
             row.appendChild(labelDiv);
 
             const cardsDiv = document.createElement("div");
-            cardsDiv.className = "flex flex-col sm:flex-row gap-2.5 flex-wrap";
+            cardsDiv.className = "flex flex-col sm:flex-row gap-2.5 flex-wrap min-w-0";
 
             weekMap[w].forEach(t => {
                 const s = WS_STYLES[t.ws];
                 const isDone = t.status === "done";
                 const isFocused = t.id === focusedTaskId;
                 const card = document.createElement("div");
-                card.className = `task-card-hover flex-1 min-w-[240px] max-w-md bg-white rounded-xl shadow-sm border-l-4 ${s.border} p-4 cursor-pointer relative group ${isDone ? 'done-card' : ''} ${isFocused ? 'ring-2 ring-blue-400 ring-offset-2' : ''}`;
+                card.className = `task-card-hover flex-1 min-w-0 sm:min-w-[240px] max-w-md bg-white rounded-xl shadow-sm border-l-4 ${s.border} p-4 cursor-pointer relative group ${isDone ? 'done-card' : ''} ${isFocused ? 'ring-2 ring-blue-400 ring-offset-2' : ''}`;
                 card.dataset.id = t.id;
 
                 const statusHTML = isDone
