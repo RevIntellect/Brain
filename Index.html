@@ -69,6 +69,12 @@
         .theme-toggle:hover { border-color: rgba(255,255,255,0.4); }
         /* Dark mode scrollbar */
         html.dark ::-webkit-scrollbar-thumb { background: #475569; }
+        /* Sync status indicator */
+        .sync-status { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 99px; transition: all 0.3s ease; white-space: nowrap; }
+        .sync-idle { opacity: 0; }
+        .sync-saving { opacity: 1; background: rgba(59,130,246,0.2); color: #93c5fd; }
+        .sync-saved { opacity: 1; background: rgba(16,185,129,0.2); color: #6ee7b7; }
+        .sync-error { opacity: 1; background: rgba(239,68,68,0.2); color: #fca5a5; }
     </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 min-h-screen">
@@ -97,6 +103,7 @@
                 <button class="theme-toggle ml-2" id="themeToggle" title="Toggle dark mode" aria-label="Toggle dark mode">
                     <span class="toggle-knob" id="themeIcon">&#9728;</span>
                 </button>
+                <span class="sync-status sync-idle" id="syncStatus"></span>
             </div>
         </div>
     </div>
@@ -347,9 +354,12 @@ var activeWorkstreams = new Set(["immersion","agent","infra","pilot","content"])
 var focusedTaskId = null;
 var currentModalTask = null;
 
-// ─── PERSISTENCE ───────────────────────────────────────────────────
+// ─── PERSISTENCE (Google Sheets + localStorage cache) ──────────────
 var STORAGE_KEY = "aw-onboarding-v2";
+var saveTimer = null;
+var sheetsSynced = false;
 
+// Load from localStorage first (instant), then sync from Sheets
 function loadState() {
     try {
         var saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -360,14 +370,77 @@ function loadState() {
     } catch(e) {}
 }
 
+// Save to localStorage (instant) + debounced save to Google Sheets
 function saveState() {
-    try {
-        var statuses = {}; var notes = {};
-        TASKS.forEach(function(t) { statuses[t.id] = t.status; if(t.notes) notes[t.id] = t.notes; });
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ statuses: statuses, focusId: focusedTaskId, notes: notes, lastSaved: new Date().toISOString() }));
-    } catch(e) {}
+    var statuses = {}; var notes = {};
+    TASKS.forEach(function(t) { statuses[t.id] = t.status; if(t.notes) notes[t.id] = t.notes; });
+    var payload = { statuses: statuses, focusId: focusedTaskId, notes: notes, lastSaved: new Date().toISOString() };
+
+    // Instant local save
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(payload)); } catch(e) {}
+
+    // Debounced Sheets save (waits 1.5s after last change to avoid spamming)
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(function() { saveToSheets(payload); }, 1500);
 }
 
+function saveToSheets(payload) {
+    if (typeof google === 'undefined' || !google.script) return; // Not in Apps Script
+    showSyncStatus('saving');
+    google.script.run
+        .withSuccessHandler(function() { showSyncStatus('saved'); })
+        .withFailureHandler(function(err) {
+            console.warn('Sheets save failed:', err);
+            showSyncStatus('error');
+        })
+        .saveState(payload);
+}
+
+function loadFromSheets() {
+    if (typeof google === 'undefined' || !google.script) return; // Not in Apps Script
+    showSyncStatus('loading');
+    google.script.run
+        .withSuccessHandler(function(data) {
+            if (!data) { showSyncStatus('saved'); return; }
+            // Merge Sheets data (authoritative) over local state
+            if (data.statuses) {
+                TASKS.forEach(function(t) {
+                    if (data.statuses[t.id]) t.status = data.statuses[t.id];
+                });
+            }
+            if (data.focusId !== undefined) focusedTaskId = data.focusId || null;
+            if (data.notes) {
+                TASKS.forEach(function(t) {
+                    if (data.notes[t.id]) t.notes = data.notes[t.id];
+                });
+            }
+            // Update local cache with Sheets data
+            try {
+                var statuses = {}; var notes = {};
+                TASKS.forEach(function(t) { statuses[t.id] = t.status; if(t.notes) notes[t.id] = t.notes; });
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({ statuses: statuses, focusId: focusedTaskId, notes: notes, lastSaved: new Date().toISOString() }));
+            } catch(e) {}
+            sheetsSynced = true;
+            render();
+            showSyncStatus('saved');
+        })
+        .withFailureHandler(function(err) {
+            console.warn('Sheets load failed:', err);
+            showSyncStatus('error');
+        })
+        .loadState();
+}
+
+function showSyncStatus(state) {
+    var el = document.getElementById('syncStatus');
+    if (!el) return;
+    if (state === 'saving') { el.textContent = 'Saving...'; el.className = 'sync-status sync-saving'; }
+    else if (state === 'saved') { el.textContent = 'Synced'; el.className = 'sync-status sync-saved'; setTimeout(function() { el.className = 'sync-status sync-idle'; }, 2000); }
+    else if (state === 'loading') { el.textContent = 'Loading...'; el.className = 'sync-status sync-saving'; }
+    else if (state === 'error') { el.textContent = 'Sync error'; el.className = 'sync-status sync-error'; }
+}
+
+// Load local first (instant render), then fetch from Sheets (authoritative)
 loadState();
 
 // ─── FOCUS PANEL ───────────────────────────────────────────────────
@@ -672,6 +745,9 @@ document.addEventListener("keydown", function(e) {
 
 // ─── INIT ──────────────────────────────────────────────────────────
 render();
+
+// Fetch authoritative state from Google Sheets (if running in Apps Script)
+loadFromSheets();
 </script>
 </body>
 </html>
