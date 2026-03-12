@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aaron Wolf — 30/60/90 Day Onboarding Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        amber_ws: { light: '#FEF3C7', DEFAULT: '#F59E0B', dark: '#B45309' },
+                        blue_ws: { light: '#DBEAFE', DEFAULT: '#3B82F6', dark: '#1D4ED8' },
+                        slate_ws: { light: '#E2E8F0', DEFAULT: '#64748B', dark: '#475569' },
+                        green_ws: { light: '#D1FAE5', DEFAULT: '#10B981', dark: '#047857' },
+                        coral_ws: { light: '#FEE2E2', DEFAULT: '#F97066', dark: '#DC2626' },
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(1.4)} }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes glow { 0%,100%{box-shadow:0 0 8px rgba(59,130,246,0.3)} 50%{box-shadow:0 0 20px rgba(59,130,246,0.5)} }
+        .pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+        .task-card-hover { transition: all 0.2s ease; }
+        .task-card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 25px -5px rgba(0,0,0,0.12); }
+        .progress-bar-animated { transition: width 0.6s cubic-bezier(0.4,0,0.2,1); }
+        .fade-in { animation: fadeIn 0.3s ease; }
+        .focus-glow { animation: glow 2s ease-in-out infinite; }
+        input[type="checkbox"] { accent-color: #3B82F6; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 99px; }
+        .done-card { opacity: 0.55; }
+        .done-card .card-text { text-decoration: line-through; }
+        /* Mobile: horizontal-scroll phase tabs */
+        .phase-tabs-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        .phase-tabs-scroll::-webkit-scrollbar { display: none; }
+        /* Safe-area padding for notched iPhones */
+        @supports (padding: env(safe-area-inset-bottom)) {
+            body { padding-bottom: env(safe-area-inset-bottom); }
+            header { padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1rem, env(safe-area-inset-right)); }
+        }
+        /* Touch-friendly tap targets */
+        @media (max-width: 640px) {
+            .task-card-hover { min-height: 72px; }
+            .pin-btn { opacity: 1 !important; width: 32px !important; height: 32px !important; }
+            .ws-filter { padding: 6px 12px; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+<!-- ─── HEADER ───────────────────────────────────────────────────── -->
+<header class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white sticky top-0 z-50 shadow-xl">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+                <h1 class="text-xl sm:text-2xl font-bold tracking-tight">Aaron Wolf: 30-60-90 Day Onboarding Plan</h1>
+                <p class="text-slate-400 text-sm mt-1 max-w-xl">Operationalize Gen AI &rarr; Top-of-Funnel Pipeline &amp; Expert-Level Sales Enablement</p>
+            </div>
+            <div class="flex gap-6 sm:gap-8">
+                <div class="text-center">
+                    <div class="text-2xl sm:text-3xl font-bold text-emerald-400" id="completedCount">0</div>
+                    <div class="text-[10px] sm:text-xs uppercase tracking-wider text-slate-400">Done</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl sm:text-3xl font-bold text-blue-400" id="inProgressCount">0</div>
+                    <div class="text-[10px] sm:text-xs uppercase tracking-wider text-slate-400">Active</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl sm:text-3xl font-bold text-slate-400" id="pendingCount">0</div>
+                    <div class="text-[10px] sm:text-xs uppercase tracking-wider text-slate-400">To Do</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- ─── PROGRESS BAR ─────────────────────────────────────────────── -->
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-4 relative z-50">
+    <div class="bg-white rounded-xl shadow-lg px-5 py-4 flex items-center gap-4">
+        <span class="text-xs sm:text-sm font-semibold text-slate-600 whitespace-nowrap">Overall Progress</span>
+        <div class="flex-1 h-3 bg-slate-200 rounded-full overflow-hidden">
+            <div class="h-full rounded-full bg-gradient-to-r from-blue-500 to-emerald-500 progress-bar-animated" id="progressFill" style="width:0%"></div>
+        </div>
+        <span class="text-sm font-bold text-blue-600 min-w-[40px] text-right" id="progressPct">0%</span>
+    </div>
+</div>
+
+<!-- ─── CURRENT FOCUS PANEL ──────────────────────────────────────── -->
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-5" id="focusPanelWrap">
+    <div id="focusPanel" class="hidden">
+        <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-xl p-5 sm:p-6 text-white focus-glow">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-lg">&#127919;</span>
+                    <span class="text-xs font-bold uppercase tracking-widest text-blue-200">Current Focus</span>
+                </div>
+                <button id="clearFocusBtn" class="text-xs px-3 py-1 rounded-full bg-white/20 hover:bg-white/30 transition-colors font-semibold">Clear Focus</button>
+            </div>
+            <h3 class="text-lg sm:text-xl font-bold mb-1" id="focusTitle"></h3>
+            <p class="text-sm text-blue-100 leading-relaxed mb-3" id="focusDetail"></p>
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="text-xs px-2.5 py-1 rounded-full bg-white/20 font-semibold" id="focusMeta"></span>
+                <span id="focusPeople" class="text-xs text-blue-200"></span>
+            </div>
+            <div class="flex gap-2 mt-4">
+                <button class="focus-status-btn px-4 py-2 rounded-full bg-white/20 hover:bg-white/30 text-sm font-semibold transition-all" data-s="in-progress">Mark Active</button>
+                <button class="focus-status-btn px-4 py-2 rounded-full bg-emerald-500 hover:bg-emerald-400 text-sm font-semibold transition-all" data-s="done">Mark Complete</button>
+            </div>
+        </div>
+    </div>
+    <div id="focusEmpty" class="bg-white border-2 border-dashed border-slate-300 rounded-2xl p-5 text-center">
+        <p class="text-slate-400 text-sm font-medium">&#127919; Click the pin icon on any task below to set your <strong>Current Focus</strong> &mdash; one task at a time, zero noise.</p>
+    </div>
+</div>
+
+<!-- ─── CONTROLS ─────────────────────────────────────────────────── -->
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-5">
+    <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+        <div class="phase-tabs-scroll flex gap-1.5 bg-white rounded-xl p-1 shadow-sm" id="phaseTabs">
+            <button class="phase-tab px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap bg-blue-600 text-white" data-phase="all">All</button>
+            <button class="phase-tab px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap text-slate-500 hover:bg-slate-100" data-phase="1">Phase 1</button>
+            <button class="phase-tab px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap text-slate-500 hover:bg-slate-100" data-phase="2">Phase 2</button>
+            <button class="phase-tab px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap text-slate-500 hover:bg-slate-100" data-phase="3">Phase 3</button>
+        </div>
+        <div class="phase-tabs-scroll flex gap-1.5 sm:flex-wrap sm:ml-auto" id="wsFilters">
+            <button class="ws-filter active px-3 py-1.5 rounded-full text-xs font-semibold transition-all border-2 border-amber-400 bg-amber-50 text-amber-700" data-ws="immersion">Immersion</button>
+            <button class="ws-filter active px-3 py-1.5 rounded-full text-xs font-semibold transition-all border-2 border-blue-400 bg-blue-50 text-blue-700" data-ws="agent">AI Build</button>
+            <button class="ws-filter active px-3 py-1.5 rounded-full text-xs font-semibold transition-all border-2 border-slate-400 bg-slate-100 text-slate-600" data-ws="infra">Infrastructure</button>
+            <button class="ws-filter active px-3 py-1.5 rounded-full text-xs font-semibold transition-all border-2 border-emerald-400 bg-emerald-50 text-emerald-700" data-ws="pilot">Pilot</button>
+            <button class="ws-filter active px-3 py-1.5 rounded-full text-xs font-semibold transition-all border-2 border-red-300 bg-red-50 text-red-600" data-ws="content">Content</button>
+        </div>
+    </div>
+</div>
+
+<!-- ─── KEY OWNERS (collapsible) ─────────────────────────────────── -->
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+    <details class="bg-white rounded-xl shadow-sm">
+        <summary class="px-5 py-3 cursor-pointer text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors">Key Owners &amp; Partners</summary>
+        <div class="px-5 pb-3 flex flex-wrap gap-2">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 text-xs font-medium"><span class="w-2 h-2 rounded-full bg-amber-500"></span>Lilian Mitchell <span class="text-slate-400">(Enablement)</span></span>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 text-xs font-medium"><span class="w-2 h-2 rounded-full bg-blue-500"></span>Vincent Lang'at <span class="text-slate-400">(Sales Insights)</span></span>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 text-xs font-medium"><span class="w-2 h-2 rounded-full bg-slate-500"></span>Mary Ring &amp; Max Coutu <span class="text-slate-400">(RevOps)</span></span>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 text-xs font-medium"><span class="w-2 h-2 rounded-full bg-slate-500"></span>Martha Conlon, Yan Cui, Patrick O'Donnell <span class="text-slate-400">(BizApps)</span></span>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 text-xs font-medium"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>Mike Trudell &amp; Garin Sweet <span class="text-slate-400">(BD)</span></span>
+        </div>
+    </details>
+</div>
+
+<!-- ─── TIMELINE ─────────────────────────────────────────────────── -->
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 pb-16" id="timeline"></main>
+
+<!-- ─── MODAL ────────────────────────────────────────────────────── -->
+<div class="fixed inset-0 bg-slate-900/50 z-[200] items-center justify-center p-4 hidden" id="modalOverlay">
+    <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto shadow-2xl" id="modal">
+        <div class="p-6 sm:p-8">
+            <div class="flex justify-between items-start mb-4">
+                <h2 class="text-lg sm:text-xl font-bold pr-8" id="modalTitle"></h2>
+                <button class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 text-lg flex-shrink-0 transition-colors" id="modalClose">&times;</button>
+            </div>
+            <div class="flex flex-wrap gap-2 mb-5" id="modalMeta"></div>
+            <div class="text-sm text-slate-600 leading-relaxed" id="modalBody"></div>
+            <div id="modalPeople" class="mt-5 pt-5 border-t border-slate-100"></div>
+            <div class="mt-5 pt-5 border-t border-slate-100">
+                <div class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Update Status</div>
+                <div class="flex gap-2 flex-wrap" id="modalStatus"></div>
+            </div>
+            <div class="mt-4">
+                <button id="modalFocusBtn" class="px-4 py-2 rounded-full border-2 border-indigo-300 bg-indigo-50 text-indigo-700 text-sm font-semibold hover:bg-indigo-100 transition-all">&#127919; Set as Current Focus</button>
+            </div>
+            <!-- Notes section -->
+            <div class="mt-5 pt-5 border-t border-slate-100">
+                <div class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Personal Notes</div>
+                <textarea id="modalNotes" class="w-full border border-slate-200 rounded-xl p-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-y min-h-[60px]" placeholder="Jot down quick thoughts, blockers, or next steps..."></textarea>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ─── DATA ──────────────────────────────────────────────────────────
+const TASKS = [
+    // Phase 1
+    { id:1, phase:1, week:"Mar 11-14", ws:"immersion", title:"Immersion",
+      short:"Applause solution set & Value Selling/MEDDPICC (Mitchell, Scribi)",
+      detail:"Deep dive into the Applause solution set, 'Value Selling' methodology, and MEDDPICC. Partner with Lilian Mitchell and Erin Scribi on the general Applause training plan and resource library in Highspot and LinkedIn Learning.",
+      people:["Lilian Mitchell","Erin Scribi"], status:"in-progress" },
+    { id:2, phase:1, week:"Mar 11-14", ws:"infra", title:"Infra Check",
+      short:"Audit AI/Sales tech stack & API connections (RevOps, BizApps)",
+      detail:"Audit the current AI/Sales tech stack (Salesloft, Salesforce, Luster, Highspot and potential new vendors like Clay, Common Room, etc.). Partner with RevOps and BizApps to ensure API connections are stable and data is flowing correctly.",
+      people:["Mary Ring","Max Coutu","Martha Conlon","Yan Cui","Patrick O'Donnell"], status:"in-progress" },
+    { id:3, phase:1, week:"Mar 17-21", ws:"agent", title:"Agent Audit",
+      short:'Review "prospecting agent" drafts; Map logic flow (Claude Code/Co-work)',
+      detail:"Review the existing 'prospecting agent' drafts. Map out the logic flow and identify where Claude Code or Claude Co-work can refine the output. Evaluate and recommend whether we should begin leveraging this audit for a quick start in Q1 with defined parameters.",
+      people:[], status:"pending" },
+    { id:4, phase:1, week:"Mar 17-21", ws:"infra", title:"Sales Insights Review",
+      short:"Understand new UI (Lang'at); Review Perplexity scripts (Gen Digital Quality, AI Initiative)",
+      detail:"Partner with Vincent Lang'at to understand the new Sales Insights & Planning Platform UI. Review the scripts and processes for mass scale research around 'General Digital Quality' and 'AI Initiatives' built using Perplexity. Provide a point of view on the current state and recommendations for improvements.",
+      people:["Vincent Lang'at"], status:"pending" },
+    { id:5, phase:1, week:"Mar 24-28", ws:"agent", title:"Agent Audit",
+      short:"Refine output, recommend quick start leverage & trial adjustments",
+      detail:"Identify what adjustments need to be made prior to extending the trial. Refine agent output and recommend whether to begin leveraging for a quick start with defined parameters.",
+      people:[], status:"pending" },
+    { id:6, phase:1, week:"Mar 24-28", ws:"infra", title:"Infra Check",
+      short:"Align on Apollo/Nooks pilots; Prioritize new tools (Dave, InfoSec/Legal)",
+      detail:"Align with Max Coutu and BD leadership (Mike Trudell and Garin Sweet) on the Apollo and Nooks pilots underway. Work with Dave to prioritize new tools for budget and Infosec/Legal review and approval.",
+      people:["Max Coutu","Mike Trudell","Garin Sweet","Dave"], status:"pending" },
+    { id:7, phase:1, week:"Mar 31-Apr 4", ws:"immersion", title:"Training",
+      short:"Partner on general training plan & resource library in Highspot/LinkedIn",
+      detail:"Partner with Lilian Mitchell and Erin Scribi on the general Applause training plan and resource library in Highspot and LinkedIn Learning.",
+      people:["Lilian Mitchell","Erin Scribi"], status:"pending" },
+    { id:8, phase:1, week:"Mar 31-Apr 4", ws:"infra", title:"Infra Check",
+      short:"Review AI Tool Vendor Matrix/Use Case Library; Build homegrown tools tracker",
+      detail:"Review the AI Tool Vendor Matrix and Sales Gen AI Use Case Library. Build a tracker for known homegrown tools, identifying how to take advantage of their benefits while streamlining best practices into a cohesive workflow.",
+      people:[], status:"pending" },
+    { id:9, phase:1, week:"Apr 7-9", ws:"pilot", title:"Process Def",
+      short:'Formalize "Contact Feed" workflow; Centralized hub for outbound',
+      detail:"Formalize the 'Contact Feed' workflow. Define exactly how Reps will provide LinkedIn contact lists to Aaron's team for agent processing, assuming a centralized hub for outbound content creation.",
+      people:[], status:"pending" },
+    { id:10, phase:1, week:"Apr 7-9", ws:"infra", title:"Deliverability",
+      short:"Verify DMARC/SPF/DKIM; Establish AI safety rails",
+      detail:"Work with IT/BD/Marketing Ops/RevOps to verify DMARC/SPF/DKIM settings and establish 'safety rails' to ensure AI-generated volume doesn't trigger SPAM filters. Understand current/baseline infrastructure to identify potential issues.",
+      people:[], status:"pending" },
+    { id:11, phase:1, week:"Apr 7-9", ws:"content", title:"Document Plan",
+      short:"As-Is and Program Plan/Project Plan for coming weeks",
+      detail:"Document As-Is state and establish a Program Plan/Project Plan for the recommended approach over the coming weeks and months. Include additional tools and resources needed to optimize the tech stack and accelerate impact on sales pipeline and team effectiveness.",
+      people:[], status:"pending" },
+
+    // Phase 2
+    { id:12, phase:2, week:"Apr 14-18", ws:"pilot", title:"Pilot Launch",
+      short:'Roll out "Agent-Assisted Outbound" for select AEs/BDRs',
+      detail:"Roll out the 'Agent-Assisted Outbound' for a select group of high-velocity AEs/BDRs. Aaron prepares personalized cadences (e.g., using Claude and/or Perplexity research) and pushes them to Salesloft as drafts for rep approval.",
+      people:[], status:"pending" },
+    { id:13, phase:2, week:"Apr 14-18", ws:"content", title:"Content Factory",
+      short:"Partner with Lilian Mitchell to use HeyGen/Firefly for training modules",
+      detail:"Partner with Lilian Mitchell to use HeyGen and Adobe Firefly (TBD) to create training module frameworks and initial on-demand content.",
+      people:["Lilian Mitchell"], status:"pending" },
+    { id:14, phase:2, week:"Apr 21-25", ws:"agent", title:"Deep Research",
+      short:'Implement Gemini Deep Research workflows for "Value Selling Prep" (Tier-1)',
+      detail:"Implement Gemini Deep Research workflows to generate 'Value Selling Prep' packages for Tier-1 accounts, automating 80% of the manual research reps currently do.",
+      people:[], status:"pending" },
+    { id:15, phase:2, week:"Apr 21-25", ws:"pilot", title:"Feedback Loop",
+      short:"Weekly sync with Leadership/Enablement to grade AI output",
+      detail:"Weekly sync with Sales Leadership and Enablement to 'grade' the AI output and adjust the agent's 'Applause Voice' based on reply rates.",
+      people:[], status:"pending" },
+    { id:16, phase:2, week:"Apr 28-May 2", ws:"pilot", title:"Pilot Launch",
+      short:"Continue Agent-Assisted Outbound; Aaron prepares personalized cadences",
+      detail:"Continue the Agent-Assisted Outbound pilot. Aaron prepares personalized cadences and pushes them to Salesloft as drafts for rep approval.",
+      people:[], status:"pending" },
+    { id:17, phase:2, week:"Apr 28-May 2", ws:"content", title:"Content Factory",
+      short:'Create first 3 "On-Demand" training modules (e.g., Applause for Retail)',
+      detail:"Create the first 3 'On-Demand' training modules (e.g., Applause for Retail or Value Selling 101) using HeyGen and Adobe Firefly.",
+      people:["Lilian Mitchell"], status:"pending" },
+    { id:18, phase:2, week:"May 5-9", ws:"pilot", title:"Feedback Loop",
+      short:'Adjust agent\'s "Applause Voice" based on reply rates; Grade output',
+      detail:"Adjust the agent's 'Applause Voice' based on reply rates. Grade output quality and iterate on cadence performance.",
+      people:[], status:"pending" },
+    { id:19, phase:2, week:"May 5-9", ws:"content", title:"Content Factory",
+      short:"Finalize and deploy first training modules",
+      detail:"Finalize and deploy the first batch of on-demand training modules to the sales team.",
+      people:["Lilian Mitchell"], status:"pending" },
+
+    // Phase 3
+    { id:20, phase:3, week:"May 12-16", ws:"pilot", title:"Global Expansion",
+      short:"Scale automated cadence preparation to global sales team",
+      detail:"Scale the automated cadence preparation to the wider global sales team.",
+      people:[], status:"pending" },
+    { id:21, phase:3, week:"May 12-16", ws:"agent", title:"First Call Agent",
+      short:'Launch agent for "Early Stage Call Guides" (Insights, Questions, Stories)',
+      detail:"Launch an agent that takes research and 'Sneak Peek' insights and automatically generates Early Stage Call Guides — providing reps with 5-10 specific and personalized discovery questions, a hypothesis and suggested customer stories for every new meeting booked.",
+      people:[], status:"pending" },
+    { id:22, phase:3, week:"May 19-23", ws:"pilot", title:"Performance Dashboard",
+      short:'Build "Sales Effectiveness Dashboard" with RevOps to track metrics',
+      detail:"In partnership with RevOps, build a 'Sales Effectiveness Dashboard' to track: AI-assisted vs. Manual pipeline generation, Meeting-set rates from AI-informed cadences, and Time saved per rep on account research.",
+      people:["Mary Ring","Max Coutu"], status:"pending" },
+    { id:23, phase:3, week:"May 19-23", ws:"content", title:"Enablement Library",
+      short:"Complete next phase of AI-driven training library (MEDDPICC/Renewal)",
+      detail:"Complete the next phase of the library of AI-driven, on-demand training for all Applause solutions and core methodologies (MEDDPICC/Renewal Milestones).",
+      people:["Lilian Mitchell"], status:"pending" },
+    { id:24, phase:3, week:"May 26-30", ws:"pilot", title:"Global Expansion",
+      short:"Continue scaling and optimizing automated cadences",
+      detail:"Continue scaling and optimizing automated cadences across the global sales organization. Refine workflows based on feedback and performance data.",
+      people:[], status:"pending" },
+    { id:25, phase:3, week:"May 26-30", ws:"infra", title:"Performance Dashboard",
+      short:"Track AI vs. Manual pipeline, Meeting-set rates, Time saved",
+      detail:"Track AI-assisted vs. Manual pipeline generation, Meeting-set rates from AI-informed cadences, and Time saved per rep on account research.",
+      people:["Mary Ring","Max Coutu"], status:"pending" },
+    { id:26, phase:3, week:"Jun 2-9", ws:"agent", title:"First Call Agent",
+      short:"Refine agent output based on initial feedback",
+      detail:"Refine the First Call Agent output based on initial feedback from reps. Iterate on discovery question quality, hypothesis accuracy and customer story relevance.",
+      people:[], status:"pending" },
+    { id:27, phase:3, week:"Jun 2-9", ws:"content", title:"Enablement Library",
+      short:"Finalize and deploy remaining AI-driven training assets",
+      detail:"Finalize and deploy remaining AI-driven training assets across the full sales organization.",
+      people:["Lilian Mitchell"], status:"pending" }
+];
+
+const PHASE_INFO = {
+    1: { label:"Phase 1", name:"The Foundation & Audit", days:"Days 1-30", badgeCls:"bg-amber-500",
+         focus:"Ecosystem immersion, technical rationalization, and infrastructure health." },
+    2: { label:"Phase 2", name:"Build, Pilot & Feed", days:"Days 31-60", badgeCls:"bg-blue-600",
+         focus:"Launching the first Mass Preparation pilot and building training assets." },
+    3: { label:"Phase 3", name:"Scale & Optimize", days:"Days 61-90", badgeCls:"bg-emerald-600",
+         focus:"Global rollout, automated First Call Plans, and performance measurement." }
+};
+
+const WS_LABELS = { immersion:"Immersion & Training", agent:"Agent/AI Build", infra:"Infrastructure & Ops", pilot:"Pilot & Feedback", content:"Content & Enablement" };
+
+const WS_STYLES = {
+    immersion: { border:"border-l-amber-500", tagBg:"bg-amber-50", tagText:"text-amber-700", dotBg:"bg-amber-500" },
+    agent:     { border:"border-l-blue-500",  tagBg:"bg-blue-50",  tagText:"text-blue-700",  dotBg:"bg-blue-500"  },
+    infra:     { border:"border-l-slate-400", tagBg:"bg-slate-100", tagText:"text-slate-600", dotBg:"bg-slate-500" },
+    pilot:     { border:"border-l-emerald-500", tagBg:"bg-emerald-50", tagText:"text-emerald-700", dotBg:"bg-emerald-500" },
+    content:   { border:"border-l-red-400",   tagBg:"bg-red-50",   tagText:"text-red-600",   dotBg:"bg-red-400"   }
+};
+
+// ─── STATE ─────────────────────────────────────────────────────────
+let activePhase = "all";
+let activeWorkstreams = new Set(["immersion","agent","infra","pilot","content"]);
+let focusedTaskId = null;
+let currentModalTask = null;
+
+// ─── PERSISTENCE ───────────────────────────────────────────────────
+const STORAGE_KEY = "aw-onboarding-v2";
+
+function loadState() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (!saved) return;
+        if (saved.statuses) TASKS.forEach(t => { if(saved.statuses[t.id]) t.status = saved.statuses[t.id]; });
+        if (saved.focusId) focusedTaskId = saved.focusId;
+        if (saved.notes) TASKS.forEach(t => { if(saved.notes[t.id]) t.notes = saved.notes[t.id]; });
+    } catch(e) {}
+}
+
+function saveState() {
+    const statuses = {}; const notes = {};
+    TASKS.forEach(t => { statuses[t.id] = t.status; if(t.notes) notes[t.id] = t.notes; });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ statuses, focusId: focusedTaskId, notes, lastSaved: new Date().toISOString() }));
+}
+
+loadState();
+
+// ─── FOCUS PANEL ───────────────────────────────────────────────────
+function renderFocusPanel() {
+    const panel = document.getElementById("focusPanel");
+    const empty = document.getElementById("focusEmpty");
+
+    if (!focusedTaskId) {
+        panel.classList.add("hidden");
+        empty.classList.remove("hidden");
+        return;
+    }
+
+    const task = TASKS.find(t => t.id === focusedTaskId);
+    if (!task) { focusedTaskId = null; saveState(); renderFocusPanel(); return; }
+
+    empty.classList.add("hidden");
+    panel.classList.remove("hidden");
+
+    const info = PHASE_INFO[task.phase];
+    document.getElementById("focusTitle").textContent = task.title + ": " + task.short;
+    document.getElementById("focusDetail").textContent = task.detail;
+    document.getElementById("focusMeta").textContent = info.label + " \u00B7 " + task.week + " \u00B7 " + WS_LABELS[task.ws];
+    document.getElementById("focusPeople").textContent = task.people.length ? "With: " + task.people.join(", ") : "";
+
+    // Focus status buttons
+    document.querySelectorAll(".focus-status-btn").forEach(btn => {
+        btn.onclick = () => {
+            task.status = btn.dataset.s;
+            if (btn.dataset.s === "done") {
+                // Auto-advance focus to next pending task
+                const nextTask = TASKS.find(t => t.id > task.id && t.status === "pending");
+                focusedTaskId = nextTask ? nextTask.id : null;
+            }
+            saveState();
+            render();
+        };
+    });
+}
+
+document.getElementById("clearFocusBtn").addEventListener("click", () => {
+    focusedTaskId = null;
+    saveState();
+    render();
+});
+
+// ─── RENDER ────────────────────────────────────────────────────────
+function render() {
+    updateStats();
+    renderFocusPanel();
+    const tl = document.getElementById("timeline");
+    tl.innerHTML = "";
+
+    [1,2,3].forEach(phase => {
+        if (activePhase !== "all" && parseInt(activePhase) !== phase) return;
+        const info = PHASE_INFO[phase];
+        const phaseTasks = TASKS.filter(t => t.phase === phase && activeWorkstreams.has(t.ws));
+        if (!phaseTasks.length) return;
+
+        const section = document.createElement("div");
+        section.className = "mb-8 fade-in";
+
+        // Phase progress
+        const phaseDone = phaseTasks.filter(t => t.status === "done").length;
+        const phaseTotal = phaseTasks.length;
+        const phasePct = phaseTotal ? Math.round((phaseDone / phaseTotal) * 100) : 0;
+
+        section.innerHTML = `
+            <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-4 pb-3 border-b-2 border-slate-200">
+                <div class="flex items-center gap-3">
+                    <span class="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider text-white ${info.badgeCls}">${info.label}</span>
+                    <span class="text-base sm:text-lg font-bold">${info.name}</span>
+                </div>
+                <div class="flex items-center gap-2 sm:ml-auto">
+                    <div class="w-24 h-2 bg-slate-200 rounded-full overflow-hidden"><div class="h-full rounded-full bg-gradient-to-r from-blue-500 to-emerald-500 progress-bar-animated" style="width:${phasePct}%"></div></div>
+                    <span class="text-xs font-semibold text-slate-500">${phaseDone}/${phaseTotal}</span>
+                    <span class="text-xs text-slate-400 hidden sm:inline">${info.days}</span>
+                </div>
+            </div>`;
+
+        // Group by week
+        const weeks = []; const weekMap = {};
+        phaseTasks.forEach(t => { if(!weekMap[t.week]){weekMap[t.week]=[];weeks.push(t.week);} weekMap[t.week].push(t); });
+
+        weeks.forEach(w => {
+            const isCurrent = w === "Mar 11-14";
+            const row = document.createElement("div");
+            row.className = "grid grid-cols-1 sm:grid-cols-[110px_1fr] gap-2 sm:gap-4 mb-3";
+
+            const labelDiv = document.createElement("div");
+            labelDiv.className = `text-xs sm:text-sm font-semibold pt-3 sm:text-right whitespace-nowrap ${isCurrent ? 'text-blue-600' : 'text-slate-400'}`;
+            if (isCurrent) {
+                labelDiv.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-blue-500 pulse-dot mr-1 align-middle"></span>${w}`;
+            } else {
+                labelDiv.textContent = w;
+            }
+            row.appendChild(labelDiv);
+
+            const cardsDiv = document.createElement("div");
+            cardsDiv.className = "flex flex-col sm:flex-row gap-2.5 flex-wrap min-w-0";
+
+            weekMap[w].forEach(t => {
+                const s = WS_STYLES[t.ws];
+                const isDone = t.status === "done";
+                const isFocused = t.id === focusedTaskId;
+                const card = document.createElement("div");
+                card.className = `task-card-hover flex-1 min-w-0 sm:min-w-[240px] max-w-md bg-white rounded-xl shadow-sm border-l-4 ${s.border} p-4 cursor-pointer relative group ${isDone ? 'done-card' : ''} ${isFocused ? 'ring-2 ring-blue-400 ring-offset-2' : ''}`;
+                card.dataset.id = t.id;
+
+                const statusHTML = isDone
+                    ? `<span class="absolute top-3 right-3 w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs font-bold">&#10003;</span>`
+                    : t.status === "in-progress"
+                    ? `<span class="absolute top-3 right-3 w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center"><span class="w-2 h-2 rounded-full bg-blue-500 pulse-dot"></span></span>`
+                    : `<span class="absolute top-3 right-3 w-6 h-6 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center text-xs">&#9675;</span>`;
+
+                // Pin button (visible on hover)
+                const pinHTML = `<button class="pin-btn absolute top-3 right-12 w-6 h-6 rounded-full ${isFocused ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400 opacity-0 group-hover:opacity-100'} flex items-center justify-center text-xs transition-all" title="Set as focus">&#128204;</button>`;
+
+                const checkId = `check-${t.id}`;
+                card.innerHTML = `
+                    ${statusHTML}
+                    ${pinHTML}
+                    <div class="flex items-center gap-2 mb-1.5">
+                        <input type="checkbox" id="${checkId}" class="w-4 h-4 rounded cursor-pointer flex-shrink-0" ${isDone ? 'checked' : ''}>
+                        <span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded ${s.tagBg} ${s.tagText}">${t.title}</span>
+                    </div>
+                    <div class="text-xs text-slate-600 leading-relaxed pr-8 card-text">${t.short}</div>
+                    ${t.people.length ? `<div class="flex flex-wrap gap-1 mt-2">${t.people.map(p=>`<span class="inline-flex items-center gap-1 text-[10px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full ${s.dotBg}"></span>${p}</span>`).join('')}</div>` : ''}
+                    ${t.notes ? `<div class="mt-2 text-[10px] text-indigo-500 truncate max-w-[200px]">&#128221; ${t.notes}</div>` : ''}`;
+
+                // Checkbox toggle
+                const checkbox = card.querySelector(`#${checkId}`);
+                checkbox.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    t.status = checkbox.checked ? "done" : "pending";
+                    saveState();
+                    render();
+                });
+
+                // Pin button
+                card.querySelector(".pin-btn").addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    focusedTaskId = (focusedTaskId === t.id) ? null : t.id;
+                    saveState();
+                    render();
+                    if (focusedTaskId) window.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+
+                // Card click opens modal
+                card.addEventListener("click", (e) => {
+                    if (e.target.tagName === "INPUT" || e.target.classList.contains("pin-btn")) return;
+                    openModal(t);
+                });
+
+                cardsDiv.appendChild(card);
+            });
+
+            row.appendChild(cardsDiv);
+            section.appendChild(row);
+        });
+
+        tl.appendChild(section);
+    });
+}
+
+function updateStats() {
+    const total = TASKS.length;
+    const done = TASKS.filter(t => t.status === "done").length;
+    const inProg = TASKS.filter(t => t.status === "in-progress").length;
+    const pend = TASKS.filter(t => t.status === "pending").length;
+    document.getElementById("completedCount").textContent = done;
+    document.getElementById("inProgressCount").textContent = inProg;
+    document.getElementById("pendingCount").textContent = pend;
+    const pct = total ? Math.round((done / total) * 100) : 0;
+    document.getElementById("progressFill").style.width = pct + "%";
+    document.getElementById("progressPct").textContent = pct + "%";
+}
+
+// ─── MODAL ─────────────────────────────────────────────────────────
+function openModal(task) {
+    currentModalTask = task;
+    const info = PHASE_INFO[task.phase];
+    const s = WS_STYLES[task.ws];
+    document.getElementById("modalTitle").textContent = task.title;
+    document.getElementById("modalMeta").innerHTML = `
+        <span class="px-3 py-1 rounded-full text-xs font-semibold ${s.tagBg} ${s.tagText}">${WS_LABELS[task.ws]}</span>
+        <span class="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">${info.label} &middot; ${task.week}</span>`;
+    document.getElementById("modalBody").innerHTML = `<p>${task.detail}</p>`;
+
+    const peopleEl = document.getElementById("modalPeople");
+    if (task.people.length) {
+        peopleEl.innerHTML = `<div class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Key People</div>
+            <div class="flex flex-wrap gap-1.5">${task.people.map(p => `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 text-xs font-medium"><span class="w-2 h-2 rounded-full ${s.dotBg}"></span>${p}</span>`).join('')}</div>`;
+    } else {
+        peopleEl.innerHTML = "";
+    }
+
+    // Status buttons
+    const statusEl = document.getElementById("modalStatus");
+    const labels = { pending:"Pending", "in-progress":"In Progress", done:"Completed" };
+    statusEl.innerHTML = ["pending","in-progress","done"].map(st =>
+        `<button class="px-4 py-2 rounded-full border-2 text-sm font-semibold transition-all ${task.status === st ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-500 hover:border-blue-300'}" data-s="${st}">${labels[st]}</button>`
+    ).join('');
+    statusEl.querySelectorAll("button").forEach(btn => {
+        btn.addEventListener("click", () => {
+            task.status = btn.dataset.s;
+            saveState();
+            render();
+            openModal(task);
+        });
+    });
+
+    // Focus button
+    document.getElementById("modalFocusBtn").onclick = () => {
+        focusedTaskId = task.id;
+        saveState();
+        closeModal();
+        render();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // Notes
+    const notesEl = document.getElementById("modalNotes");
+    notesEl.value = task.notes || "";
+    notesEl.oninput = () => {
+        task.notes = notesEl.value;
+        saveState();
+    };
+
+    document.getElementById("modalOverlay").classList.remove("hidden");
+    document.getElementById("modalOverlay").classList.add("flex");
+}
+
+document.getElementById("modalClose").addEventListener("click", closeModal);
+document.getElementById("modalOverlay").addEventListener("click", e => { if(e.target === e.currentTarget) closeModal(); });
+document.addEventListener("keydown", e => { if(e.key === "Escape") closeModal(); });
+function closeModal() {
+    document.getElementById("modalOverlay").classList.add("hidden");
+    document.getElementById("modalOverlay").classList.remove("flex");
+    currentModalTask = null;
+    render(); // Re-render to show any note icons
+}
+
+// ─── PHASE TABS ────────────────────────────────────────────────────
+document.querySelectorAll(".phase-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+        document.querySelectorAll(".phase-tab").forEach(t => { t.classList.remove("bg-blue-600","text-white"); t.classList.add("text-slate-500"); });
+        tab.classList.add("bg-blue-600","text-white");
+        tab.classList.remove("text-slate-500");
+        activePhase = tab.dataset.phase;
+        render();
+    });
+});
+
+// ─── WORKSTREAM FILTERS ────────────────────────────────────────────
+document.querySelectorAll(".ws-filter").forEach(btn => {
+    btn.addEventListener("click", () => {
+        const ws = btn.dataset.ws;
+        if (activeWorkstreams.has(ws)) { activeWorkstreams.delete(ws); btn.classList.add("opacity-40"); btn.classList.remove("active"); }
+        else { activeWorkstreams.add(ws); btn.classList.remove("opacity-40"); btn.classList.add("active"); }
+        render();
+    });
+});
+
+// ─── KEYBOARD SHORTCUTS ────────────────────────────────────────────
+document.addEventListener("keydown", e => {
+    if (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT") return;
+    if (e.key === "1") { document.querySelector('[data-phase="1"]').click(); }
+    if (e.key === "2") { document.querySelector('[data-phase="2"]').click(); }
+    if (e.key === "3") { document.querySelector('[data-phase="3"]').click(); }
+    if (e.key === "0") { document.querySelector('[data-phase="all"]').click(); }
+});
+
+// ─── INIT ──────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>
