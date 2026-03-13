@@ -33,6 +33,10 @@
         @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(1.4)} }
         @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
         @keyframes glow { 0%,100%{box-shadow:0 0 8px rgba(59,130,246,0.3)} 50%{box-shadow:0 0 20px rgba(59,130,246,0.5)} }
+        @keyframes celebrate { 0%{transform:scale(1)} 30%{transform:scale(1.08)} 60%{transform:scale(0.96)} 100%{transform:scale(1)} }
+        @keyframes confetti-fall { 0%{transform:translateY(-20px) rotate(0deg);opacity:1} 100%{transform:translateY(120vh) rotate(720deg);opacity:0} }
+        @keyframes slideDown { from{opacity:0;max-height:0;transform:translateY(-10px)} to{opacity:1;max-height:200px;transform:translateY(0)} }
+        .celebrate { animation: celebrate 0.4s ease; }
         .pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
         .task-card-hover { transition: all 0.2s ease; }
         .task-card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 25px -5px rgba(0,0,0,0.12); }
@@ -69,6 +73,20 @@
         .theme-toggle:hover { border-color: rgba(255,255,255,0.4); }
         /* Dark mode scrollbar */
         html.dark ::-webkit-scrollbar-thumb { background: #475569; }
+        /* Date tracker */
+        .date-tracker { background: linear-gradient(135deg, rgba(59,130,246,0.1), rgba(16,185,129,0.1)); border: 1px solid rgba(59,130,246,0.2); }
+        html.dark .date-tracker { background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(16,185,129,0.15)); border-color: rgba(59,130,246,0.3); }
+        .phase-marker { position: relative; }
+        .phase-marker::after { content:''; position:absolute; bottom:-4px; left:0; right:0; height:3px; border-radius:99px; }
+        .phase-marker.active-phase::after { background: #3B82F6; }
+        /* Status cycle button */
+        .status-cycle { cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; }
+        .status-cycle:hover { transform: scale(1.2); box-shadow: 0 0 8px rgba(59,130,246,0.3); }
+        .status-cycle:active { transform: scale(0.9); }
+        /* Confetti piece */
+        .confetti { position: fixed; top: -10px; z-index: 9999; pointer-events: none; width: 8px; height: 8px; border-radius: 2px; animation: confetti-fall linear forwards; }
+        /* Milestone toast */
+        .milestone-toast { position: fixed; top: 80px; left: 50%; transform: translateX(-50%); z-index: 9999; animation: slideDown 0.4s ease; }
         /* Sync status indicator */
         .sync-status { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 99px; transition: all 0.3s ease; white-space: nowrap; }
         .sync-idle { opacity: 0; }
@@ -117,6 +135,66 @@
             <div class="h-full rounded-full bg-gradient-to-r from-blue-500 to-emerald-500 progress-bar-animated" id="progressFill" style="width:0%"></div>
         </div>
         <span class="text-sm font-bold text-blue-600 dark:text-blue-400 min-w-[40px] text-right" id="progressPct">0%</span>
+    </div>
+</div>
+
+<!-- ─── DATE TRACKER ────────────────────────────────────────────── -->
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-3">
+    <div class="date-tracker rounded-xl px-5 py-4" id="dateTracker">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div class="flex items-center gap-3 flex-1">
+                <div class="flex items-center gap-2">
+                    <span class="text-lg">&#128197;</span>
+                    <div>
+                        <div class="text-xs font-bold uppercase tracking-widest text-slate-400">Onboarding Day</div>
+                        <div class="flex items-baseline gap-1.5">
+                            <span class="text-2xl font-bold text-blue-600 dark:text-blue-400" id="dayNumber">--</span>
+                            <span class="text-sm text-slate-400">of 90</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="h-10 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block"></div>
+                <div class="hidden sm:flex items-center gap-4" id="phaseIndicators">
+                    <div class="phase-marker text-center px-2" data-p="1">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Phase 1</div>
+                        <div class="text-xs font-semibold text-slate-500 dark:text-slate-400">Days 1-30</div>
+                    </div>
+                    <div class="phase-marker text-center px-2" data-p="2">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Phase 2</div>
+                        <div class="text-xs font-semibold text-slate-500 dark:text-slate-400">Days 31-60</div>
+                    </div>
+                    <div class="phase-marker text-center px-2" data-p="3">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Phase 3</div>
+                        <div class="text-xs font-semibold text-slate-500 dark:text-slate-400">Days 61-90</div>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="text-right hidden sm:block">
+                    <div class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Current Phase</div>
+                    <div class="text-sm font-bold" id="currentPhaseLabel">--</div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <label class="text-[10px] font-bold uppercase tracking-widest text-slate-400 whitespace-nowrap" for="startDateInput">Start Date</label>
+                    <input type="date" id="startDateInput" class="text-xs border border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-300">
+                </div>
+            </div>
+        </div>
+        <!-- Timeline bar -->
+        <div class="mt-3 relative">
+            <div class="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden flex">
+                <div class="h-full bg-amber-400 transition-all duration-500" style="width:33.33%" id="phase1Bar"></div>
+                <div class="h-full bg-blue-500 transition-all duration-500" style="width:33.33%" id="phase2Bar"></div>
+                <div class="h-full bg-emerald-500 transition-all duration-500" style="width:33.34%" id="phase3Bar"></div>
+            </div>
+            <div class="absolute top-0 h-2 w-0.5 bg-white dark:bg-slate-200 shadow-md transition-all duration-500" id="dayMarker" style="left:0%"></div>
+            <div class="flex justify-between mt-1">
+                <span class="text-[9px] text-slate-400">Day 1</span>
+                <span class="text-[9px] text-slate-400">Day 30</span>
+                <span class="text-[9px] text-slate-400">Day 60</span>
+                <span class="text-[9px] text-slate-400">Day 90</span>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -440,8 +518,169 @@ function showSyncStatus(state) {
     else if (state === 'error') { el.textContent = 'Sync error'; el.className = 'sync-status sync-error'; }
 }
 
+// ─── DATE TRACKER ──────────────────────────────────────────────────
+var START_DATE_KEY = "aw-start-date";
+var startDate = null;
+
+function loadStartDate() {
+    try {
+        var saved = localStorage.getItem(START_DATE_KEY);
+        if (saved) { startDate = new Date(saved); }
+        else { startDate = new Date('2025-03-11'); } // Default: first task week
+    } catch(e) { startDate = new Date('2025-03-11'); }
+    var input = document.getElementById('startDateInput');
+    if (input) input.value = formatDateISO(startDate);
+}
+
+function formatDateISO(d) {
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function getDayNumber() {
+    if (!startDate) return 0;
+    var now = new Date();
+    var diff = Math.floor((now - startDate) / (1000*60*60*24)) + 1;
+    return Math.max(1, Math.min(diff, 90));
+}
+
+function getCurrentPhase() {
+    var day = getDayNumber();
+    if (day <= 30) return 1;
+    if (day <= 60) return 2;
+    return 3;
+}
+
+function getCurrentWeekRange() {
+    // Return the week string that matches current date
+    var now = new Date();
+    for (var i = 0; i < TASKS.length; i++) {
+        var w = TASKS[i].week;
+        var parts = parseWeekRange(w);
+        if (parts && now >= parts.start && now <= parts.end) return w;
+    }
+    return null;
+}
+
+function parseWeekRange(w) {
+    // Parse "Mar 11-14", "Mar 31-Apr 4", etc.
+    try {
+        var year = startDate ? startDate.getFullYear() : 2025;
+        var months = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+        var parts = w.split('-');
+        if (parts.length !== 2) return null;
+        var left = parts[0].trim().split(/\s+/);
+        var startMonth = months[left[0]];
+        var startDay = parseInt(left[1]);
+        var right = parts[1].trim().split(/\s+/);
+        var endMonth, endDay;
+        if (right.length === 2) { endMonth = months[right[0]]; endDay = parseInt(right[1]); }
+        else { endMonth = startMonth; endDay = parseInt(right[0]); }
+        var s = new Date(year, startMonth, startDay);
+        var e = new Date(year, endMonth, endDay, 23, 59, 59);
+        // Handle year rollover
+        if (e < s) e.setFullYear(year + 1);
+        return { start: s, end: e };
+    } catch(ex) { return null; }
+}
+
+function renderDateTracker() {
+    var day = getDayNumber();
+    var phase = getCurrentPhase();
+    document.getElementById('dayNumber').textContent = day;
+    var phaseName = PHASE_INFO[phase];
+    document.getElementById('currentPhaseLabel').textContent = phaseName.label + ': ' + phaseName.name;
+    document.getElementById('currentPhaseLabel').className = 'text-sm font-bold ' +
+        (phase === 1 ? 'text-amber-500' : phase === 2 ? 'text-blue-500' : 'text-emerald-500');
+
+    // Position the day marker on the timeline
+    var pct = Math.min(100, Math.max(0, ((day - 1) / 89) * 100));
+    document.getElementById('dayMarker').style.left = pct + '%';
+
+    // Highlight active phase
+    document.querySelectorAll('.phase-marker').forEach(function(el) {
+        var p = parseInt(el.dataset.p);
+        el.classList.toggle('active-phase', p === phase);
+        if (p === phase) {
+            el.querySelector('.text-\\[10px\\]').classList.add(phase === 1 ? 'text-amber-500' : phase === 2 ? 'text-blue-500' : 'text-emerald-500');
+        }
+    });
+}
+
+document.getElementById('startDateInput').addEventListener('change', function() {
+    startDate = new Date(this.value + 'T00:00:00');
+    try { localStorage.setItem(START_DATE_KEY, formatDateISO(startDate)); } catch(e) {}
+    renderDateTracker();
+    render();
+});
+
+loadStartDate();
+
+// ─── CELEBRATIONS ──────────────────────────────────────────────────
+var prevDoneCount = 0;
+
+function spawnConfetti() {
+    var colors = ['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899'];
+    for (var i = 0; i < 30; i++) {
+        var el = document.createElement('div');
+        el.className = 'confetti';
+        el.style.left = (Math.random() * 100) + 'vw';
+        el.style.background = colors[Math.floor(Math.random() * colors.length)];
+        el.style.animationDuration = (1.5 + Math.random() * 2) + 's';
+        el.style.animationDelay = (Math.random() * 0.5) + 's';
+        el.style.width = (5 + Math.random() * 6) + 'px';
+        el.style.height = (5 + Math.random() * 6) + 'px';
+        el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+        document.body.appendChild(el);
+        setTimeout(function(e) { e.remove(); }.bind(null, el), 4000);
+    }
+}
+
+function showMilestone(msg) {
+    var toast = document.createElement('div');
+    toast.className = 'milestone-toast bg-gradient-to-r from-blue-600 to-emerald-500 text-white px-6 py-3 rounded-2xl shadow-2xl text-sm font-bold';
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    setTimeout(function() { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.5s'; }, 2500);
+    setTimeout(function() { toast.remove(); }, 3000);
+}
+
+function checkMilestones(newDone) {
+    if (newDone <= prevDoneCount) { prevDoneCount = newDone; return; }
+    var milestones = {
+        5: '5 tasks done — Great start!',
+        10: '10 tasks done — Crushing it!',
+        15: '15 tasks done — Over halfway!',
+        20: '20 tasks done — Almost there!',
+        27: 'ALL TASKS COMPLETE — 90-day plan conquered!'
+    };
+    // Phase milestones
+    var p1 = TASKS.filter(function(t) { return t.phase === 1; });
+    var p1done = p1.filter(function(t) { return t.status === 'done'; }).length;
+    var p2 = TASKS.filter(function(t) { return t.phase === 2; });
+    var p2done = p2.filter(function(t) { return t.status === 'done'; }).length;
+    var p3 = TASKS.filter(function(t) { return t.phase === 3; });
+    var p3done = p3.filter(function(t) { return t.status === 'done'; }).length;
+
+    if (p1done === p1.length && prevDoneCount < p1.length) { spawnConfetti(); showMilestone('Phase 1 Complete — Foundation Set!'); }
+    else if (p2done === p2.length && p1done === p1.length && (prevDoneCount - p1.length) < p2.length) { spawnConfetti(); showMilestone('Phase 2 Complete — Pilot Launched!'); }
+    else if (p3done === p3.length && p2done === p2.length && p1done === p1.length) { spawnConfetti(); showMilestone('ALL PHASES COMPLETE!'); }
+    else if (milestones[newDone]) { spawnConfetti(); showMilestone(milestones[newDone]); }
+
+    prevDoneCount = newDone;
+}
+
+// ─── STATUS CYCLING ────────────────────────────────────────────────
+var STATUS_CYCLE = ['pending', 'in-progress', 'done'];
+function cycleStatus(task) {
+    var idx = STATUS_CYCLE.indexOf(task.status);
+    task.status = STATUS_CYCLE[(idx + 1) % 3];
+    saveState();
+    render();
+}
+
 // Load local first (instant render), then fetch from Sheets (authoritative)
 loadState();
+prevDoneCount = TASKS.filter(function(t) { return t.status === 'done'; }).length;
 
 // ─── FOCUS PANEL ───────────────────────────────────────────────────
 function renderFocusPanel() {
@@ -524,8 +763,9 @@ function render() {
         var weeks = []; var weekMap = {};
         phaseTasks.forEach(function(t) { if(!weekMap[t.week]){weekMap[t.week]=[];weeks.push(t.week);} weekMap[t.week].push(t); });
 
+        var currentWeek = getCurrentWeekRange();
         weeks.forEach(function(w) {
-            var isCurrent = w === "Mar 11-14";
+            var isCurrent = w === currentWeek;
             var row = document.createElement("div");
             row.className = "grid grid-cols-1 sm:grid-cols-[110px_1fr] gap-2 sm:gap-4 mb-3";
 
@@ -550,10 +790,10 @@ function render() {
                 card.dataset.id = t.id;
 
                 var statusHTML = isDone
-                    ? '<span class="absolute top-3 right-3 w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xs font-bold">&#10003;</span>'
+                    ? '<button class="status-cycle absolute top-3 right-3 w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xs font-bold" title="Click to cycle status">&#10003;</button>'
                     : t.status === "in-progress"
-                    ? '<span class="absolute top-3 right-3 w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 flex items-center justify-center"><span class="w-2 h-2 rounded-full bg-blue-500 pulse-dot"></span></span>'
-                    : '<span class="absolute top-3 right-3 w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-400 flex items-center justify-center text-xs">&#9675;</span>';
+                    ? '<button class="status-cycle absolute top-3 right-3 w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 flex items-center justify-center" title="Click to cycle status"><span class="w-2 h-2 rounded-full bg-blue-500 pulse-dot"></span></button>'
+                    : '<button class="status-cycle absolute top-3 right-3 w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-400 flex items-center justify-center text-xs" title="Click to cycle status">&#9675;</button>';
 
                 var pinHTML = '<button class="pin-btn absolute top-3 right-12 w-6 h-6 rounded-full ' + (isFocused ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-400 opacity-0 group-hover:opacity-100') + ' flex items-center justify-center text-xs transition-all" title="Set as focus">&#128204;</button>';
 
@@ -588,6 +828,14 @@ function render() {
                     };
                 })(t));
 
+                // Status cycle click (the icon in top-right)
+                card.querySelector(".status-cycle").addEventListener("click", (function(task) {
+                    return function(e) {
+                        e.stopPropagation();
+                        cycleStatus(task);
+                    };
+                })(t));
+
                 // Pin button
                 card.querySelector(".pin-btn").addEventListener("click", (function(task) {
                     return function(e) {
@@ -602,7 +850,7 @@ function render() {
                 // Card click opens modal
                 card.addEventListener("click", (function(task) {
                     return function(e) {
-                        if (e.target.tagName === "INPUT" || e.target.classList.contains("pin-btn")) return;
+                        if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON" || e.target.classList.contains("pin-btn") || e.target.closest('.status-cycle')) return;
                         openModal(task);
                     };
                 })(t));
@@ -629,6 +877,12 @@ function updateStats() {
     var pct = total ? Math.round((done / total) * 100) : 0;
     document.getElementById("progressFill").style.width = pct + "%";
     document.getElementById("progressPct").textContent = pct + "%";
+
+    // Celebrations
+    checkMilestones(done);
+
+    // Date tracker
+    renderDateTracker();
 }
 
 // ─── MODAL ─────────────────────────────────────────────────────────
