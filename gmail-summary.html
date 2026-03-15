@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gmail Daily Summary</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        gmail: { light: '#FEE2E2', DEFAULT: '#EA4335', dark: '#B91C1C' },
+                        important: { light: '#FEF3C7', DEFAULT: '#F59E0B', dark: '#B45309' },
+                        unread: { light: '#DBEAFE', DEFAULT: '#3B82F6', dark: '#1D4ED8' },
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(1.4)} }
+        .fade-in { animation: fadeIn 0.3s ease; }
+        .pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+        .card-hover { transition: all 0.2s ease; }
+        .card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 25px -5px rgba(0,0,0,0.12); }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 99px; }
+        .category-pill { transition: all 0.2s ease; }
+        .category-pill:hover { transform: scale(1.05); }
+        @supports (padding: env(safe-area-inset-bottom)) {
+            body { padding-bottom: env(safe-area-inset-bottom); }
+        }
+        @media (max-width: 640px) {
+            .card-hover { min-height: 64px; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen">
+
+<!-- Header -->
+<header class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-gmail flex items-center justify-center">
+                <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M20 18h-2V9.25L12 13 6 9.25V18H4V6h1.2l6.8 4.25L18.8 6H20m0-2H4c-1.11 0-2 .89-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2z"/></svg>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold text-gray-900">Gmail Daily Summary</h1>
+                <p class="text-xs text-gray-500" id="summaryDate"></p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <button onclick="loadSummaryData()" class="text-sm px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition" title="Refresh">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            </button>
+            <button onclick="showSettings()" class="text-sm px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            </button>
+        </div>
+    </div>
+</header>
+
+<!-- Stats Bar -->
+<div class="max-w-5xl mx-auto px-4 py-4">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" id="statsBar">
+        <div class="bg-white rounded-xl p-3 border border-gray-100 shadow-sm text-center">
+            <div class="text-2xl font-bold text-unread" id="statTotal">--</div>
+            <div class="text-xs text-gray-500 mt-0.5">Total Emails</div>
+        </div>
+        <div class="bg-white rounded-xl p-3 border border-gray-100 shadow-sm text-center">
+            <div class="text-2xl font-bold text-important" id="statImportant">--</div>
+            <div class="text-xs text-gray-500 mt-0.5">Important</div>
+        </div>
+        <div class="bg-white rounded-xl p-3 border border-gray-100 shadow-sm text-center">
+            <div class="text-2xl font-bold text-green-600" id="statAccounts">--</div>
+            <div class="text-xs text-gray-500 mt-0.5">Accounts</div>
+        </div>
+        <div class="bg-white rounded-xl p-3 border border-gray-100 shadow-sm text-center">
+            <div class="text-2xl font-bold text-gmail" id="statActionable">--</div>
+            <div class="text-xs text-gray-500 mt-0.5">Need Reply</div>
+        </div>
+    </div>
+</div>
+
+<!-- Account Filter Tabs -->
+<div class="max-w-5xl mx-auto px-4 pb-2">
+    <div class="flex gap-2 overflow-x-auto pb-1" id="accountTabs" style="scrollbar-width:none;">
+        <!-- Populated by JS -->
+    </div>
+</div>
+
+<!-- Category Filter -->
+<div class="max-w-5xl mx-auto px-4 pb-3">
+    <div class="flex gap-2 flex-wrap" id="categoryFilters">
+        <!-- Populated by JS -->
+    </div>
+</div>
+
+<!-- Email List -->
+<main class="max-w-5xl mx-auto px-4 pb-8">
+    <div id="emailList" class="space-y-2">
+        <!-- Populated by JS -->
+    </div>
+    <div id="emptyState" class="hidden text-center py-16">
+        <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+        <p class="text-gray-400 text-lg">No emails to show</p>
+        <p class="text-gray-400 text-sm mt-1">Run the Python script to generate your daily summary</p>
+    </div>
+</main>
+
+<!-- Email Detail Modal -->
+<div id="emailModal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeModal()"></div>
+    <div class="absolute inset-x-4 top-[10%] sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-2xl bg-white rounded-2xl shadow-2xl max-h-[75vh] overflow-y-auto fade-in">
+        <div class="p-6" id="modalContent"></div>
+    </div>
+</div>
+
+<!-- Settings Modal -->
+<div id="settingsModal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeSettings()"></div>
+    <div class="absolute inset-x-4 top-[10%] sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-lg bg-white rounded-2xl shadow-2xl fade-in">
+        <div class="p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-bold">Settings</h2>
+                <button onclick="closeSettings()" class="text-gray-400 hover:text-gray-600">&times;</button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-700 mb-2">Data Source</h3>
+                    <p class="text-xs text-gray-500 mb-2">This dashboard reads from a JSON file generated by the Python script. Place your <code class="bg-gray-100 px-1 rounded">gmail_summary.json</code> in the same directory.</p>
+                    <div class="bg-gray-50 rounded-lg p-3 text-xs font-mono text-gray-600">
+                        python gmail_daily_summary.py
+                    </div>
+                </div>
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-700 mb-2">Load from File</h3>
+                    <input type="file" id="jsonFileInput" accept=".json" onchange="loadFromFile(event)"
+                           class="text-sm w-full file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 file:font-medium hover:file:bg-blue-100">
+                </div>
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-700 mb-2">Clear Cached Data</h3>
+                    <button onclick="clearData()" class="text-sm px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition">Clear Data</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const STORAGE_KEY = "gmail-summary-v1";
+const CATEGORIES = {
+    important:  { label: "Important",    color: "bg-amber-100 text-amber-800 border-amber-200" },
+    action:     { label: "Needs Reply",  color: "bg-red-100 text-red-800 border-red-200" },
+    meeting:    { label: "Meetings",     color: "bg-purple-100 text-purple-800 border-purple-200" },
+    update:     { label: "Updates",      color: "bg-blue-100 text-blue-800 border-blue-200" },
+    newsletter: { label: "Newsletters",  color: "bg-green-100 text-green-800 border-green-200" },
+    other:      { label: "Other",        color: "bg-gray-100 text-gray-700 border-gray-200" },
+};
+
+let summaryData = null;
+let activeAccount = "all";
+let activeCategory = "all";
+
+// Initialize
+document.addEventListener("DOMContentLoaded", () => {
+    document.getElementById("summaryDate").textContent = new Date().toLocaleDateString("en-US", {
+        weekday: "long", year: "numeric", month: "long", day: "numeric"
+    });
+    loadSummaryData();
+});
+
+function loadSummaryData() {
+    // Try localStorage first
+    const cached = localStorage.getItem(STORAGE_KEY);
+    if (cached) {
+        try {
+            summaryData = JSON.parse(cached);
+            render();
+            return;
+        } catch (e) { /* fall through */ }
+    }
+
+    // Try fetching gmail_summary.json
+    fetch("gmail_summary.json")
+        .then(r => { if (!r.ok) throw new Error("Not found"); return r.json(); })
+        .then(data => {
+            summaryData = data;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            render();
+        })
+        .catch(() => {
+            // Show empty state with demo option
+            showEmptyOrDemo();
+        });
+}
+
+function loadFromFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            summaryData = JSON.parse(e.target.result);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(summaryData));
+            closeSettings();
+            render();
+        } catch (err) {
+            alert("Invalid JSON file");
+        }
+    };
+    reader.readAsText(file);
+}
+
+function clearData() {
+    localStorage.removeItem(STORAGE_KEY);
+    summaryData = null;
+    showEmptyOrDemo();
+    closeSettings();
+}
+
+function showEmptyOrDemo() {
+    document.getElementById("emailList").innerHTML = "";
+    document.getElementById("emptyState").classList.remove("hidden");
+    document.getElementById("accountTabs").innerHTML = "";
+    document.getElementById("categoryFilters").innerHTML = "";
+    ["statTotal","statImportant","statAccounts","statActionable"].forEach(id => {
+        document.getElementById(id).textContent = "--";
+    });
+}
+
+function render() {
+    if (!summaryData || !summaryData.emails) { showEmptyOrDemo(); return; }
+    document.getElementById("emptyState").classList.add("hidden");
+
+    if (summaryData.generated_at) {
+        const d = new Date(summaryData.generated_at);
+        document.getElementById("summaryDate").textContent =
+            d.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" }) +
+            " at " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    }
+
+    const emails = summaryData.emails;
+    const accounts = [...new Set(emails.map(e => e.account))];
+
+    // Stats
+    document.getElementById("statTotal").textContent = emails.length;
+    document.getElementById("statImportant").textContent = emails.filter(e => e.category === "important").length;
+    document.getElementById("statAccounts").textContent = accounts.length;
+    document.getElementById("statActionable").textContent = emails.filter(e => e.category === "action").length;
+
+    // Account tabs
+    const tabsHtml = [`<button onclick="filterAccount('all')" class="px-3 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap ${activeAccount === 'all' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}">All Accounts</button>`];
+    accounts.forEach(acc => {
+        const count = emails.filter(e => e.account === acc).length;
+        const isActive = activeAccount === acc;
+        tabsHtml.push(`<button onclick="filterAccount('${acc.replace(/'/g, "\\'")}')" class="px-3 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap ${isActive ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}">${acc} <span class="ml-1 opacity-60">(${count})</span></button>`);
+    });
+    document.getElementById("accountTabs").innerHTML = tabsHtml.join("");
+
+    // Category filters
+    const catHtml = [`<button onclick="filterCategory('all')" class="category-pill px-3 py-1 rounded-full text-xs font-medium border transition ${activeCategory === 'all' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}">All</button>`];
+    Object.entries(CATEGORIES).forEach(([key, cat]) => {
+        const count = getFiltered().filter(e => e.category === key).length;
+        if (count === 0 && activeCategory !== key) return;
+        const isActive = activeCategory === key;
+        catHtml.push(`<button onclick="filterCategory('${key}')" class="category-pill px-3 py-1 rounded-full text-xs font-medium border transition ${isActive ? 'bg-gray-800 text-white border-gray-800' : cat.color}">${cat.label} <span class="opacity-60">(${count})</span></button>`);
+    });
+    document.getElementById("categoryFilters").innerHTML = catHtml.join("");
+
+    // Email list
+    const filtered = getFiltered();
+    if (filtered.length === 0) {
+        document.getElementById("emailList").innerHTML = `<div class="text-center py-8 text-gray-400">No emails match this filter</div>`;
+        return;
+    }
+
+    const listHtml = filtered.map((email, idx) => {
+        const cat = CATEGORIES[email.category] || CATEGORIES.other;
+        const time = email.time || "";
+        const isUnread = email.unread !== false;
+        return `
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm card-hover cursor-pointer fade-in p-4"
+             onclick="showEmail(${idx})" style="animation-delay:${Math.min(idx * 30, 300)}ms">
+            <div class="flex items-start gap-3">
+                <div class="flex-shrink-0 mt-0.5">
+                    <div class="w-8 h-8 rounded-full ${isUnread ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'} flex items-center justify-center text-xs font-bold">
+                        ${(email.from || "?")[0].toUpperCase()}
+                    </div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-0.5">
+                        <span class="text-sm font-semibold text-gray-900 truncate ${isUnread ? '' : 'font-normal text-gray-600'}">${escHtml(email.from || "Unknown")}</span>
+                        <span class="text-xs text-gray-400 flex-shrink-0">${escHtml(time)}</span>
+                    </div>
+                    <div class="text-sm ${isUnread ? 'font-medium text-gray-900' : 'text-gray-700'} truncate">${escHtml(email.subject || "(no subject)")}</div>
+                    <div class="text-xs text-gray-400 truncate mt-0.5">${escHtml(email.snippet || "")}</div>
+                    <div class="flex items-center gap-2 mt-1.5">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-medium ${cat.color}">${cat.label}</span>
+                        ${email.account ? `<span class="text-[10px] text-gray-400">${escHtml(email.account)}</span>` : ""}
+                        ${email.labels && email.labels.length ? email.labels.map(l => `<span class="text-[10px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">${escHtml(l)}</span>`).join("") : ""}
+                    </div>
+                </div>
+                <svg class="w-4 h-4 text-gray-300 flex-shrink-0 mt-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </div>
+        </div>`;
+    }).join("");
+    document.getElementById("emailList").innerHTML = listHtml;
+}
+
+function getFiltered() {
+    if (!summaryData || !summaryData.emails) return [];
+    let emails = summaryData.emails;
+    if (activeAccount !== "all") emails = emails.filter(e => e.account === activeAccount);
+    if (activeCategory !== "all") emails = emails.filter(e => e.category === activeCategory);
+    return emails;
+}
+
+function filterAccount(acc) { activeAccount = acc; render(); }
+function filterCategory(cat) { activeCategory = cat; render(); }
+
+function showEmail(idx) {
+    const email = getFiltered()[idx];
+    if (!email) return;
+    const cat = CATEGORIES[email.category] || CATEGORIES.other;
+    document.getElementById("modalContent").innerHTML = `
+        <div class="flex items-center justify-between mb-4">
+            <span class="px-3 py-1 rounded-full text-xs font-medium ${cat.color}">${cat.label}</span>
+            <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        </div>
+        <h2 class="text-xl font-bold text-gray-900 mb-2">${escHtml(email.subject || "(no subject)")}</h2>
+        <div class="flex items-center gap-3 text-sm text-gray-500 mb-4">
+            <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                ${(email.from || "?")[0].toUpperCase()}
+            </div>
+            <div>
+                <div class="font-medium text-gray-700">${escHtml(email.from || "Unknown")}</div>
+                <div class="text-xs">${escHtml(email.time || "")} ${email.account ? '&middot; ' + escHtml(email.account) : ''}</div>
+            </div>
+        </div>
+        ${email.to ? `<div class="text-xs text-gray-400 mb-3">To: ${escHtml(email.to)}</div>` : ""}
+        <div class="bg-gray-50 rounded-lg p-4 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">${escHtml(email.body || email.snippet || "No preview available")}</div>
+        ${email.summary ? `<div class="mt-4 bg-blue-50 rounded-lg p-3"><div class="text-xs font-semibold text-blue-700 mb-1">AI Summary</div><div class="text-sm text-blue-800">${escHtml(email.summary)}</div></div>` : ""}
+        ${email.labels && email.labels.length ? `<div class="mt-3 flex gap-1 flex-wrap">${email.labels.map(l => `<span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">${escHtml(l)}</span>`).join("")}</div>` : ""}
+    `;
+    document.getElementById("emailModal").classList.remove("hidden");
+}
+
+function closeModal() { document.getElementById("emailModal").classList.add("hidden"); }
+function showSettings() { document.getElementById("settingsModal").classList.remove("hidden"); }
+function closeSettings() { document.getElementById("settingsModal").classList.add("hidden"); }
+
+function escHtml(str) {
+    const d = document.createElement("div");
+    d.textContent = str;
+    return d.innerHTML;
+}
+
+// Keyboard shortcuts
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { closeModal(); closeSettings(); }
+});
+</script>
+</body>
+</html>

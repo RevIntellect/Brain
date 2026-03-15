@@ -1,0 +1,12 @@
+# Gmail credentials & tokens (sensitive)
+credentials.json
+tokens/
+
+# Generated summary data
+gmail_summary.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
