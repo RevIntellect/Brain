@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bigfoot Sightings in Ohio — Cryptid Field Report</title>
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Creepster&display=swap" rel="stylesheet">
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/recharts@2/umd/Recharts.js"></script>
+    <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #090b06; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #2e3a24; border-radius: 99px; }
+    </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState } = React;
+const {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  AreaChart, Area, Cell
+} = Recharts;
+
+const YEARLY = [
+  { year: "2021", reports: 14 },
+  { year: "2022", reports: 11 },
+  { year: "2023", reports: 12 },
+  { year: "2024", reports: 15 },
+  { year: "2025", reports: 18 },
+  { year: "2026*", reports: 12 },
+];
+
+const MONTHLY = [
+  { m: "Jan '21", r: 0 }, { m: "Apr", r: 1 }, { m: "Jul", r: 2 }, { m: "Oct", r: 1 },
+  { m: "Jan '22", r: 0 }, { m: "Apr", r: 1 }, { m: "Jul", r: 1 }, { m: "Oct", r: 1 },
+  { m: "Jan '23", r: 0 }, { m: "Apr", r: 2 }, { m: "Jul", r: 1 }, { m: "Oct", r: 1 },
+  { m: "Jan '24", r: 0 }, { m: "Apr", r: 1 }, { m: "Jul", r: 1 }, { m: "Oct", r: 1 },
+  { m: "Jan '25", r: 1 }, { m: "Apr", r: 1 }, { m: "Jul", r: 2 }, { m: "Oct", r: 1 },
+  { m: "Jan '26", r: 1 }, { m: "Mar*", r: 8 },
+];
+
+const FLAP_2026 = [
+  { day: "Mar 6", r: 2, note: "Mantua Center: 9ft brown figure spotted in daylight on SR-44" },
+  { day: "Mar 7", r: 1, note: "Mantua: 8ft dark brown figure, deep vibrating grunt heard" },
+  { day: "Mar 8", r: 1, note: "Garrettsville: Creature seen walking in 'stilted fashion'" },
+  { day: "Mar 9", r: 2, note: "Garrettsville + Streetsboro: Two separate witnesses report sightings" },
+  { day: "Mar 10", r: 2, note: "Newton Twp + Lake Milton: 7ft reddish-brown creature, guard dog left 'shaking'" },
+];
+
+const COUNTIES = [
+  { county: "Portage", total: 19, pct: 100 },
+  { county: "Guernsey", total: 16, pct: 84 },
+  { county: "Columbiana", total: 14, pct: 74 },
+  { county: "Summit", total: 12, pct: 63 },
+  { county: "Stark", total: 11, pct: 58 },
+  { county: "Harrison", total: 11, pct: 58 },
+  { county: "Jefferson", total: 10, pct: 53 },
+  { county: "Medina", total: 10, pct: 53 },
+];
+
+const EVENTS = [
+  { yr: "2021", text: "Multiple eastern OH encounters across Summit, Guernsey, Mahoning, Clermont counties. 14 total reports." },
+  { yr: "2022", text: "Richland County hunter's sighting goes national. BFRO hosts Bigfoot Basecamp at Pleasant Hill Lake Park." },
+  { yr: "2023", text: "Medina & Warren county reports filed. Hocking Hills Bigfoot Festival draws thousands to Logan, OH." },
+  { yr: "2024", text: "Carroll & Columbiana counties active. Salt Fork conference sells out within minutes. 15 reports filed." },
+  { yr: "2025", text: "Jefferson County trucker spots Sasquatch on railroad tracks near Steubenville (Class A). 18 total reports." },
+  { yr: "2026", text: "The Portage County Flap: 8 high-credibility sightings in 5 days (Mar 6-10). Biggest cluster since the 1970s." },
+];
+
+const Tip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  const d = payload[0].payload;
+  return (
+    <div style={{ background: "rgba(8,10,6,0.96)", border: "1px solid rgba(100,200,50,0.3)", borderRadius: 10, padding: "10px 14px", backdropFilter: "blur(12px)", maxWidth: 260 }}>
+      <p style={{ color: "#8bc34a", fontSize: 12, margin: 0, fontFamily: "monospace", fontWeight: 700 }}>{label || d.day || d.county || ""}</p>
+      <p style={{ color: "#fff", fontSize: 20, margin: "4px 0 0", fontFamily: "monospace", fontWeight: 700 }}>
+        {payload[0].value} <span style={{ fontSize: 11, color: "#8bc34a" }}>reports</span>
+      </p>
+      {d.note && <p style={{ color: "#7a8a6e", fontSize: 11, margin: "6px 0 0", lineHeight: 1.4 }}>{d.note}</p>}
+    </div>
+  );
+};
+
+const Tab = ({ active, onClick, children }) => (
+  <button onClick={onClick} style={{
+    background: active ? "rgba(100,200,50,0.12)" : "transparent",
+    color: active ? "#8bc34a" : "#5a6a4e",
+    border: active ? "1px solid rgba(100,200,50,0.3)" : "1px solid rgba(255,255,255,0.06)",
+    borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer",
+    fontFamily: "'Courier Prime', monospace", transition: "all 0.2s",
+  }}>{children}</button>
+);
+
+const Stat = ({ label, value, sub, accent }) => (
+  <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 12, padding: "14px 16px", flex: 1, minWidth: 120 }}>
+    <p style={{ color: "#5a6a4e", fontSize: 10, textTransform: "uppercase", letterSpacing: 1.5, margin: 0, fontFamily: "'Courier Prime', monospace" }}>{label}</p>
+    <p style={{ color: accent || "#d0d0c0", fontSize: 22, margin: "5px 0 0", fontFamily: "'Courier Prime', monospace", fontWeight: 700 }}>{value}</p>
+    {sub && <p style={{ color: "#3e4a34", fontSize: 11, margin: "3px 0 0", fontFamily: "'Courier Prime', monospace" }}>{sub}</p>}
+  </div>
+);
+
+const barColors = ["#5a8a2a", "#6a9a30", "#7aaa38", "#8abc42", "#9acd4c", "#ff5252"];
+
+function App() {
+  const [view, setView] = useState("yearly");
+  const [hoveredEvent, setHoveredEvent] = useState(null);
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#090b06", color: "#d0d0c0", fontFamily: "'Courier Prime', monospace", padding: "36px 20px" }}>
+      <div style={{ maxWidth: 860, margin: "0 auto" }}>
+
+        {/* Header */}
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+            <span style={{ fontSize: 26 }}>🦶</span>
+            <span style={{ color: "#5a6a4e", fontSize: 10, textTransform: "uppercase", letterSpacing: 3, fontWeight: 700 }}>Cryptid Field Report</span>
+          </div>
+          <h1 style={{ fontSize: 30, fontWeight: 700, margin: 0, fontFamily: "'Creepster', cursive", letterSpacing: 2, background: "linear-gradient(135deg, #8bc34a, #4a7a20, #cddc39)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+            Bigfoot Sightings in Ohio
+          </h1>
+          <p style={{ color: "#3e4a34", fontSize: 12, margin: "6px 0 0" }}>
+            2021 to present · Sources: BFRO, Bigfoot Society, Bigfoot Mapping Project, news reports
+          </p>
+        </div>
+
+        {/* Stats */}
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 24 }}>
+          <Stat label="5-Year Total" value="82" sub="documented reports" accent="#8bc34a" />
+          <Stat label="2026 Pace" value="~48/yr" sub="if Mar trend holds" accent="#ff5252" />
+          <Stat label="Hottest County" value="Portage" sub="8 sightings in 5 days" accent="#cddc39" />
+          <Stat label="OH Rank (US)" value="#4" sub="328+ all-time" />
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 20 }}>
+          <Tab active={view === "yearly"} onClick={() => setView("yearly")}>By Year</Tab>
+          <Tab active={view === "quarterly"} onClick={() => setView("quarterly")}>Quarterly Trend</Tab>
+          <Tab active={view === "flap"} onClick={() => setView("flap")}>2026 Flap</Tab>
+          <Tab active={view === "counties"} onClick={() => setView("counties")}>Top Counties</Tab>
+          <Tab active={view === "timeline"} onClick={() => setView("timeline")}>Timeline</Tab>
+        </div>
+
+        {/* Chart Container */}
+        <div style={{ background: "rgba(255,255,255,0.015)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 14, padding: "20px 10px 14px 0", marginBottom: 24, minHeight: 360 }}>
+
+          {view === "yearly" && (
+            <>
+              <p style={{ color: "#5a6a4e", fontSize: 10, textTransform: "uppercase", letterSpacing: 1.5, margin: "0 0 16px 56px" }}>
+                Reported Sightings Per Year · *2026 through Mar 15 only
+              </p>
+              <ResponsiveContainer width="100%" height={310}>
+                <BarChart data={YEARLY} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                  <XAxis dataKey="year" tick={{ fill: "#5a6a4e", fontSize: 12, fontFamily: "'Courier Prime', monospace" }} axisLine={{ stroke: "rgba(255,255,255,0.06)" }} tickLine={false} />
+                  <YAxis tick={{ fill: "#5a6a4e", fontSize: 11, fontFamily: "'Courier Prime', monospace" }} axisLine={false} tickLine={false} domain={[0, 20]} />
+                  <Tooltip content={<Tip />} cursor={{ fill: "rgba(100,200,50,0.06)" }} />
+                  <Bar dataKey="reports" radius={[6, 6, 0, 0]} maxBarSize={60}>
+                    {YEARLY.map((_, i) => (
+                      <Cell key={i} fill={barColors[i]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </>
+          )}
+
+          {view === "quarterly" && (
+            <>
+              <p style={{ color: "#5a6a4e", fontSize: 10, textTransform: "uppercase", letterSpacing: 1.5, margin: "0 0 16px 56px" }}>
+                Quarterly Report Volume · Note the Mar 2026 spike
+              </p>
+              <ResponsiveContainer width="100%" height={310}>
+                <AreaChart data={MONTHLY} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                  <defs>
+                    <linearGradient id="gGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#8bc34a" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="#8bc34a" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                  <XAxis dataKey="m" tick={{ fill: "#5a6a4e", fontSize: 10, fontFamily: "'Courier Prime', monospace" }} axisLine={{ stroke: "rgba(255,255,255,0.06)" }} tickLine={false} interval={1} />
+                  <YAxis tick={{ fill: "#5a6a4e", fontSize: 11, fontFamily: "'Courier Prime', monospace" }} axisLine={false} tickLine={false} />
+                  <Tooltip content={<Tip />} cursor={{ stroke: "rgba(100,200,50,0.15)", strokeDasharray: "4 4" }} />
+                  <Area type="monotone" dataKey="r" stroke="#8bc34a" strokeWidth={2} fill="url(#gGrad)" dot={{ r: 3, fill: "#8bc34a", stroke: "#090b06", strokeWidth: 1.5 }} activeDot={{ r: 5, fill: "#cddc39", stroke: "#090b06", strokeWidth: 2 }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </>
+          )}
+
+          {view === "flap" && (
+            <>
+              <p style={{ color: "#ff5252", fontSize: 10, textTransform: "uppercase", letterSpacing: 1.5, margin: "0 0 16px 56px", fontWeight: 700 }}>
+                The Portage County Flap · 8 Reports in 5 Days
+              </p>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={FLAP_2026} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                  <XAxis dataKey="day" tick={{ fill: "#5a6a4e", fontSize: 12, fontFamily: "'Courier Prime', monospace" }} axisLine={{ stroke: "rgba(255,255,255,0.06)" }} tickLine={false} />
+                  <YAxis tick={{ fill: "#5a6a4e", fontSize: 11, fontFamily: "'Courier Prime', monospace" }} axisLine={false} tickLine={false} domain={[0, 3]} />
+                  <Tooltip content={<Tip />} cursor={{ fill: "rgba(255,80,80,0.06)" }} />
+                  <Bar dataKey="r" fill="#ff5252" radius={[6, 6, 0, 0]} maxBarSize={50} />
+                </BarChart>
+              </ResponsiveContainer>
+              <div style={{ padding: "16px 20px 4px 56px" }}>
+                {FLAP_2026.map((d, i) => (
+                  <div key={i} style={{ display: "flex", gap: 12, marginBottom: 10, alignItems: "flex-start" }}>
+                    <span style={{ color: "#ff5252", fontSize: 12, fontWeight: 700, minWidth: 48 }}>{d.day}</span>
+                    <span style={{ color: "#7a8a6e", fontSize: 12, lineHeight: 1.4 }}>{d.note}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {view === "counties" && (
+            <>
+              <p style={{ color: "#5a6a4e", fontSize: 10, textTransform: "uppercase", letterSpacing: 1.5, margin: "0 0 16px 56px" }}>
+                Top Ohio Counties by All-Time BFRO Report Count
+              </p>
+              <div style={{ padding: "0 20px 0 56px" }}>
+                {COUNTIES.map((c, i) => (
+                  <div key={i} style={{ marginBottom: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                      <span style={{ color: "#c0c0b0", fontSize: 13, fontWeight: 700 }}>{c.county} County</span>
+                      <span style={{ color: "#8bc34a", fontSize: 13, fontWeight: 700 }}>{c.total} reports</span>
+                    </div>
+                    <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 6, height: 18, overflow: "hidden" }}>
+                      <div style={{
+                        width: `${c.pct}%`,
+                        height: "100%",
+                        background: i === 0 ? "linear-gradient(90deg, #ff5252, #ff8a80)" : "linear-gradient(90deg, #4a7a20, #8bc34a)",
+                        borderRadius: 6,
+                        transition: "width 0.6s ease",
+                        display: "flex",
+                        alignItems: "center",
+                        paddingLeft: 8,
+                      }}>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {view === "timeline" && (
+            <>
+              <p style={{ color: "#5a6a4e", fontSize: 10, textTransform: "uppercase", letterSpacing: 1.5, margin: "0 0 20px 56px" }}>
+                Notable Events & Milestones
+              </p>
+              <div style={{ padding: "0 20px 0 56px" }}>
+                {EVENTS.map((e, i) => (
+                  <div key={i}
+                    onMouseEnter={() => setHoveredEvent(i)}
+                    onMouseLeave={() => setHoveredEvent(null)}
+                    style={{
+                      display: "flex", gap: 16, marginBottom: 20, alignItems: "flex-start",
+                      padding: "10px 14px", borderRadius: 10,
+                      background: hoveredEvent === i ? "rgba(100,200,50,0.05)" : "transparent",
+                      border: hoveredEvent === i ? "1px solid rgba(100,200,50,0.15)" : "1px solid transparent",
+                      transition: "all 0.2s",
+                      cursor: "default",
+                    }}>
+                    <div style={{
+                      minWidth: 48, height: 48, borderRadius: 10,
+                      background: i === 5 ? "rgba(255,80,80,0.15)" : "rgba(100,200,50,0.08)",
+                      border: i === 5 ? "1px solid rgba(255,80,80,0.3)" : "1px solid rgba(100,200,50,0.15)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      color: i === 5 ? "#ff5252" : "#8bc34a", fontWeight: 700, fontSize: 14,
+                    }}>
+                      {e.yr}
+                    </div>
+                    <p style={{ color: "#8a9a7e", fontSize: 12, margin: 0, lineHeight: 1.5 }}>{e.text}</p>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ textAlign: "center", color: "#2e3a24", fontSize: 11, lineHeight: 1.6 }}>
+          <p style={{ margin: 0 }}>
+            Data: BFRO (bfro.net) · Bigfoot Society · Bigfoot Mapping Project · Regional news
+          </p>
+          <p style={{ margin: "4px 0 0" }}>
+            *2026 data through Mar 15 only. Ohio ranks #4 nationally with 328+ total BFRO reports.
+          </p>
+          <p style={{ margin: "4px 0 0" }}>
+            BFRO posts only first-hand, investigated reports. Actual encounter numbers are likely higher.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
